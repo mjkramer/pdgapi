@@ -15,6 +15,7 @@ UNIT_CONVERSION_FACTORS = {
     's': (1E0, 's'),
     'yr': (31536000, 's'),
     'year': (31536000, 's'),
+    'years': (31536000, 's'),
 }
 
 
