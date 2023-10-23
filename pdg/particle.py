@@ -69,9 +69,10 @@ class PdgParticle(PdgData):
                     raise PdgNoDataError('Particle data for %s%s not found' % (self.pdgid, mcid_string))
                 elif len(matches_g) == 1:
                     self.cache['pdgparticle'] = matches_g[0]._mapping
+                # TODO this should indicate whether we have too many 'G' matches or too many S/P matches (from before)
                 else:
                     names = [p.name for p in matches_g]
-                    mcids = list(set([p.mcid for p in matches]))
+                    mcids = list(set([p.mcid for p in matches_g]))
                     raise PdgAmbiguousValueError('Multiple particles for %s: MCID %s, names %s' % (self.baseid, mcids, names))
         return self.cache['pdgparticle']
 
