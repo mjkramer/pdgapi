@@ -309,13 +309,12 @@ class PdgParticle(PdgData):
                                        self.is_generic)
             return best_width_property.best_summary().get_value('GeV')
         except PdgNoDataError:
-            if not self.api.pedantic and self.has_lifetime_entry:
-                if self.lifetime is None: # S063
-                    return 0.
-                return HBAR_IN_GEV_S / self.lifetime
-            else:
-                # raise
+            if self.api.pedantic:
+                raise
+            # S063 has a lifetime entry but it's NULL
+            if (not self.has_lifetime_entry) or (self.lifetime is None):
                 return 0.
+            return HBAR_IN_GEV_S / self.lifetime
 
     @property
     def width_error(self):
@@ -325,13 +324,12 @@ class PdgParticle(PdgData):
                                        self.is_generic)
             return best_width_property.best_summary().get_error('GeV')
         except PdgNoDataError:
-            if not self.api.pedantic and self.has_lifetime_entry:
-                if self.lifetime is None: # S063
-                    return 0.
-                return self.lifetime_error * HBAR_IN_GEV_S / self.lifetime**2
-            else:
-                # raise
+            if self.api.pedantic:
+                raise
+            # S063 has a lifetime entry but it's NULL
+            if (not self.has_lifetime_entry) or (self.lifetime is None):
                 return 0.
+            return self.lifetime_error * HBAR_IN_GEV_S / self.lifetime**2
 
     @property
     def lifetime(self):
@@ -341,11 +339,11 @@ class PdgParticle(PdgData):
                                           self.is_generic)
             return best_lifetime_property.best_summary().get_value('s')
         except PdgNoDataError:
-            if not self.api.pedantic and self.has_width_entry:
-                return HBAR_IN_GEV_S / self.width
-            else:
-                # raise
+            if self.api.pedantic:
+                raise
+            if not self.has_width_entry:
                 return float('inf')
+            return HBAR_IN_GEV_S / self.width
 
     @property
     def lifetime_error(self):
@@ -358,11 +356,12 @@ class PdgParticle(PdgData):
                 err = 0.
             return err
         except PdgNoDataError:
-            if not self.api.pedantic and self.has_width_entry:
-                return self.width_error * HBAR_IN_GEV_S / self.width**2
-            else:
-                # raise
+            if self.api.pedantic:
+                raise
+            if not self.has_width_entry:
                 return 0.
+            return self.width_error * HBAR_IN_GEV_S / self.width**2
+
 
     @property
     def has_width_entry(self):
