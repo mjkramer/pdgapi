@@ -74,7 +74,7 @@ class PdgParticle(PdgData):
                 # TODO this should indicate whether we have too many 'G' matches or too many S/P matches (from before)
                 else:
                     names = [p.name for p in matches_g]
-                    mcids = list(set([p.mcid for p in matches_g]))
+                    mcids = list(set([p.mcid for p in matches]))
                     raise PdgAmbiguousValueError('Multiple particles for %s: MCID %s, names %s' % (self.baseid, mcids, names))
         return self.cache['pdgparticle']
 
