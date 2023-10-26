@@ -67,9 +67,7 @@ class PdgParticle(PdgData):
                 if len(matches_g) == 0:
                     mcid_string = ', MC ID = %s' % self.set_mcid if self.set_mcid else ''
                     raise PdgNoDataError('Particle data for %s%s not found' % (self.pdgid, mcid_string))
-                # the ambiguity tolerance is for K^* ("duplicate" of K^*(892))
-                # which previously had entry_type of S but now has P
-                elif len(matches_g) == 1 or (len(matches_g) >= 1 and not self.api.pedantic):
+                elif len(matches_g) == 1:
                     self.cache['pdgparticle'] = matches_g[0]._mapping
                 # TODO this should indicate whether we have too many 'G' matches or too many S/P matches (from before)
                 else:

@@ -126,14 +126,14 @@ class TestData(unittest.TestCase):
 
         self.api.pedantic = True
         p = self.api.get('M018')
-        self.assertRaises(PdgAmbiguousValueError, lambda: p.is_generic)
-        self.assertRaises(PdgAmbiguousValueError, lambda: list(p.masses()))
-        self.assertRaises(PdgAmbiguousValueError, lambda: list(p.widths()))
+        self.assertTrue(p.is_generic)
+        self.assertEqual(len(list(p.masses())), 4)
+        self.assertEqual(len(list(p.widths())), 3)
         self.assertEqual(list(p.lifetimes()), [])
         self.assertRaises(PdgAmbiguousValueError, lambda: p.mass)
         self.assertRaises(PdgAmbiguousValueError, lambda: p.width)
-        self.assertRaises(PdgAmbiguousValueError, lambda: p.lifetime)
-        self.assertRaises(PdgAmbiguousValueError, lambda: p.charge)
+        self.assertRaises(PdgNoDataError, lambda: p.lifetime)
+        self.assertEqual(p.charge, None)
 
         for self.api.pedantic in [True, False]:
             p = self.api.get_particle_by_mcid(323)
