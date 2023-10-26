@@ -10,10 +10,12 @@ from pdg.errors import PdgAmbiguousValueError, PdgNoDataError
 
 
 class TestData(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.api = pdg.connect(pedantic=False)
+
+    def setUp(self):
+        self.api.pedantic = False
 
     def test_all_particle_data(self):
         n_errors = 0
@@ -86,8 +88,6 @@ class TestData(unittest.TestCase):
         self.assertEqual(self.api.get('S013D').best_summary().comment, 'Assuming CPT')
 
     def test_best_widths_and_lifetimes(self):
-        saved_pedantic = self.api.pedantic
-
         pi0 = self.api.get_particle_by_name('pi0')
         self.assertTrue(pi0.has_lifetime_entry)
         self.assertFalse(pi0.has_width_entry)
@@ -112,11 +112,7 @@ class TestData(unittest.TestCase):
         self.assertEqual(W.lifetime, 3.156834532374101e-25)
         self.assertEqual(W.lifetime_error, 6.359091144350707e-27)
 
-        self.api.pedantic = saved_pedantic
-
     def test_kstar_892(self):
-        saved_pedantic = self.api.pedantic
-
         self.api.pedantic = False
         p = self.api.get('M018')
         self.assertTrue(p.is_generic)
@@ -192,5 +188,3 @@ class TestData(unittest.TestCase):
         self.assertRaises(PdgAmbiguousValueError, lambda: p.mass)
         self.assertEqual(round(p.width, 4), 0.0473)
         self.assertRaises(PdgNoDataError, lambda: p.lifetime)
-
-        self.api.pedantic = saved_pedantic
