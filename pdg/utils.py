@@ -78,8 +78,10 @@ def best(properties, pedantic=False, quantity=None, is_generic=False):
                 err += '. This is a generic charge state; try selecting a specific charge (e.g. by setting the MC ID)'
             raise PdgAmbiguousValueError(err)
         else:
-            props_best = [p for p in props_without_alternates if 'D' in p.data_flags]
+            props_best = [p for p in props_without_alternates if 'D' in p.data_flags
+                          and p.best_summary().get_value() is not None]
             if len(props_best) >= 1:
                 return props_best[0]
             else:
-                return props_without_alternates[0]
+                return next(p for p in props_without_alternates
+                            if p.best_summary().get_value() is not None)
