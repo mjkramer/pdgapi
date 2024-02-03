@@ -30,6 +30,14 @@ class PdgItem:
                 self.cache['pdgitem'] = result._mapping
         return self.cache['pdgitem']
 
+    def _get_targets(self) -> Iterable['PdgItem']:
+        pdgitem_map_table = self.api.db.tables['pdgitem_map']
+        query = select(pdgitem_map_table).where(pdgitem_map_table.c.pdgitem_id == bindparam('pdgitem_id'))
+        with self.api.engine.connect() as conn:
+            rows = conn.execute(query, {'pdgitem_id': self.pdgitem_id}).fetchall()
+            for row in rows:
+                yield PdgItem(self.api, row.target_id)
+
     @property
     def has_particle(self) -> bool:
         if 'has_particle' not in self.cache:
@@ -47,9 +55,17 @@ class PdgItem:
     @property
     def particle(self) -> PdgParticle:
         if not self.has_particle:
-            raise PdgNoDataError(f'No PDGPARTICLE for PDGITEM {self.pdgitem_id}')
+            raise PdgNoDataError(f'No direct PDGPARTICLE for PDGITEM {self.pdgitem_id}')
         p = self.cache['pdgparticle']
         return PdgParticle(self.api, p['pdgid'], set_mcid=p['mcid'])
+
+    @property
+    def particles(self) -> Iterable[PdgParticle]:
+        if self.has_particle:
+            yield self.particle
+        else:
+            for target in self._get_targets():
+                yield from target.particles
 
 
 @dataclass
@@ -72,42 +88,6 @@ class PdgBranchingFraction(PdgProperty):
                     raise PdgInvalidPdgIdError(f'No PDGDECAY entry for {self.pdgid}')
         return self.cache['pdgdecay']
 
-    def _get_particle(self, pdgitem_id: int) -> PdgParticle:
-        particle_table = self.api.db.tables['pdgparticle']
-        query = select(particle_table).where(particle_table.c.pdgitem_id == bindparam('pdgitem_id'))
-        with self.api.engine.connect() as conn:
-            try:
-                row = conn.execute(query, {'pdgitem_id': pdgitem_id}).fetchone()._mapping
-                return PdgParticle(self.api, row['pdgid'], set_mcid=row['mcid'])
-            except AttributeError:
-                raise PdgNoDataError(f'No PDGPARTICLE entry with pdgitem_id of {pdgitem_id}')
-
-    def _get_targets(self, pdgitem_id: int) -> Iterable[int]:
-        pdgitem_map_table = self.api.db.tables['pdgitem_map']
-        query = select(pdgitem_map_table).where(pdgitem_map_table.c.pdgitem_id == bindparam('pdgitem_id'))
-        with self.api.engine.connect() as conn:
-            rows = conn.execute(query, {'pdgitem_id': pdgitem_id}).fetchall()
-            for row in rows:
-                yield row.target_id
-
-    def _get_all_particles(self, pdgitem_id: int) -> Iterable[PdgParticle]:
-        # XXX no good?
-        targets = list(self._get_targets(pdgitem_id))
-        if len(targets) == 0:
-            yield self._get_particle(pdgitem_id)
-            return
-        for tgt_pdgitem_id in targets:
-            yield from self._get_all_particles(tgt_pdgitem_id)
-
-    def _get_all_items(self, pdgitem_id: int) -> Iterable[PdgItem]:
-        targets = list(self._get_targets(pdgitem_id))
-        if len(targets) == 0:
-            yield PdgItem(self.api, pdgitem_id)
-            return
-        for target_pdgitem_id in targets:
-            yield from self._get_all_items(target_pdgitem_id)
-
-
     @property
     def products(self):
         for row in self._get_decay():
@@ -115,7 +95,6 @@ class PdgBranchingFraction(PdgProperty):
                 continue
 
             yield PdgDecayProduct(
-                # particle=self._get_pdgparticle(row['pdgitem_id']),
                 item=PdgItem(self.api, row['pdgitem_id']),
                 multiplier=row['multiplier'],
                 subdecay=(PdgBranchingFraction(self.api, row['subdecay'])
