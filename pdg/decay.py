@@ -7,22 +7,25 @@ from typing import Optional, Iterable
 
 from sqlalchemy import bindparam, select, RowMapping
 
-from pdg.api import PdgApi
 from pdg.data import PdgProperty
 from pdg.errors import PdgInvalidPdgIdError, PdgNoDataError
 from pdg.particle import PdgParticle
 
 
 class PdgItem:
-    def __init__(self, api: PdgApi, pdgitem_id: int):
+    def __init__(self, api, pdgitem_id: int):
         self.api = api
         self.pdgitem_id = pdgitem_id
         self.cache = {}
 
+    def __repr__(self):
+        name = self._get_pdgitem()['name']
+        return f'PdgItem("{name}")'
+
     def _get_pdgitem(self) -> RowMapping:
         if 'pdgitem' not in self.cache:
             pdgitem_table = self.api.db.tables['pdgitem']
-            query = select(pdgitem_table).where(pdgitem_table.c.pdgitem_id == bindparam('pdgitem_id'))
+            query = select(pdgitem_table).where(pdgitem_table.c.id == bindparam('pdgitem_id'))
             with self.api.engine.connect() as conn:
                 result = conn.execute(query, {'pdgitem_id': self.pdgitem_id}).fetchone()
                 if result is None:
@@ -66,6 +69,18 @@ class PdgItem:
         else:
             for target in self._get_targets():
                 yield from target.particles
+
+    @property
+    def name(self) -> str:
+        return self.cache['pdgitem']['name']
+
+    @property
+    def name_tex(self) -> str:
+        return self.cache['pdgitem']['name_tex']
+
+    @property
+    def item_type(self) -> str:
+        return self.cache['pdgitem']['item_type']
 
 
 @dataclass
