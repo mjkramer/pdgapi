@@ -72,15 +72,15 @@ class PdgItem:
 
     @property
     def name(self) -> str:
-        return self.cache['pdgitem']['name']
+        return self._get_pdgitem()['name']
 
     @property
     def name_tex(self) -> str:
-        return self.cache['pdgitem']['name_tex']
+        return self._get_pdgitem()['name_tex']
 
     @property
     def item_type(self) -> str:
-        return self.cache['pdgitem']['item_type']
+        return self._get_pdgitem()['item_type']
 
 
 @dataclass
