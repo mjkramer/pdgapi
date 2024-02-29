@@ -42,7 +42,7 @@ class TestData(unittest.TestCase):
         self.assertEqual(self.api.get_particle_by_mcid(-11).name, 'e+')
         # self.assertEqual(self.api.get_particle_by_mcid(39).name, 'graviton')
         self.assertEqual(self.api.get_particle_by_mcid(100211).name, 'pi(1300)+')
-        self.assertEqual(self.api.get_particle_by_mcid(-30323).name, 'K^*bar(1680)-')
+        self.assertEqual(self.api.get_particle_by_mcid(-30323).name, 'K^*(1680)-')
         self.assertEqual(self.api.get_particle_by_mcid(-30323).mcid, -30323)
 
     def test_quantum_P(self):
