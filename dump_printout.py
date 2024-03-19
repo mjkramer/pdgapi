@@ -47,19 +47,20 @@ def display_article(data):
 
 def dump_item(api, conn, pdgitem_id):
     pdgitem_table = api.db.tables['pdgitem']
-    print(pdgitem_id)
+    print(f'{pdgitem_id = }')
     query = select(pdgitem_table.c.name, pdgitem_table.c.name_tex,
                    pdgitem_table.c.item_type) \
         .where(pdgitem_table.c.id == pdgitem_id)
     rows = conn.execute(query).fetchall()
     assert len(rows) == 1
     for row in rows:
-        print(row.name)
-        print(row.name_tex)
-        print(row.item_type)
+        print(f'{row.name = }')
+        print(f'{row.name_tex = }')
+        print(f'{row.item_type = }')
+        print()
 
 
-def dump_unique(api, conn, pdgitem_id):
+def dump_unique(api, conn, pdgitem_id, indent=''):
     pdgitem_table = api.db.tables['pdgitem']
     pdgitem_map_table = api.db.tables['pdgitem_map']
     query = select(pdgitem_table, pdgitem_map_table) \
@@ -68,20 +69,23 @@ def dump_unique(api, conn, pdgitem_id):
                pdgitem_table.c.item_type.in_(['A', 'W', 'S'])) \
         .order_by(pdgitem_map_table.c.sort)
     for row in conn.execute(query).fetchall():
-        print(row.pdgitem_map_name)
-        print(row.pdgitem_name)
-        print(row.item_type)
+        print(f'{indent}{row.pdgitem_map_name = }')
+        print(f'{indent}{row.pdgitem_name = }')
+        print(f'{indent}{row.item_type = }')
+        print()
+        dump_unique(api, conn, row.pdgitem_id, indent + '    ')
 
 
 def dump_particles(api, conn, pdgid):
     pdgparticle_table = api.db.tables['pdgparticle']
-    print(pdgid)
+    print(f'{pdgid = }\n')
     query = select(pdgparticle_table.c.name, pdgparticle_table.c.mcid,
                    pdgparticle_table.c.pdgitem_id) \
         .where(pdgparticle_table.c.pdgid == pdgid)
     for row in conn.execute(query).fetchall():
-        print(row.name)
-        print(row.mcid)
+        print(f'{row.name = }')
+        print(f'{row.mcid = }')
+        print()
         dump_item(api, conn, row.pdgitem_id)
         dump_unique(api, conn, row.pdgitem_id)
         # dump_generic(api, conn, row.pdgitem_id)
