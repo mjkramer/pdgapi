@@ -60,13 +60,14 @@ def dump_item(api, conn, pdgitem_id):
         print()
 
 
+# TODO: Check names are equal
 def dump_unique(api, conn, pdgitem_id, indent=''):
     pdgitem_table = api.db.tables['pdgitem']
     pdgitem_map_table = api.db.tables['pdgitem_map']
     query = select(pdgitem_table, pdgitem_map_table) \
         .join(pdgitem_map_table, pdgitem_map_table.c.pdgitem_id == pdgitem_table.c.id) \
-        .where(pdgitem_map_table.c.target_id == pdgitem_id and
-               pdgitem_table.c.item_type.in_(['A', 'W', 'S'])) \
+        .where((pdgitem_map_table.c.target_id == pdgitem_id) &
+               (pdgitem_table.c.item_type.in_(['A', 'W', 'S']))) \
         .order_by(pdgitem_map_table.c.sort)
     for row in conn.execute(query).fetchall():
         print(f'{indent}{row.pdgitem_map_name = }')
