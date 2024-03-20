@@ -4,8 +4,11 @@ import argparse
 
 from sqlalchemy import select
 
-import pdg
+import yattag
 from yattag import Doc
+
+import pdg
+
 
 
 def get_props(cls):
@@ -41,6 +44,71 @@ def display_article(data):
                 # doc.input(name = 'quantity', type = 'text')
 
                 doc.stag('input', type = 'submit', value = 'Add to cart')
+
+    return doc.getvalue()
+
+
+def mock_up():
+    doc, tag, text, line = Doc().ttl()
+    stag = doc.stag
+
+    def items():
+        return tag('div', klass='items')
+
+    def key(name):
+        return line('span', f'{name}: ', klass='key')
+
+    def value(val):
+        return line('span', val, klass='value')
+
+    def item(k, v):
+        with tag('div', klass='item'):
+            key(k)
+            value(v)
+
+    doc.asis('<!DOCTYPE html>')
+
+    """
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    """
+
+    with tag('html'):
+        with tag('head'):
+            stag('meta', charset='UTF-8')
+            # stag('link', rel='stylesheet', href='printout.css')
+            with tag('style'):
+                text('\n' + open('printout.css').read())
+            line('title', 'PdgParticle pi+')
+            with tag('script', src='https://polyfill.io/v3/polyfill.min.js?features=es6'):
+                pass
+            with tag('script', 'async', id='MathJax-script',
+                 src='https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js'):
+                pass
+        with tag('body'):
+            title = 'PdgParticle pi+ (\\(\\pi^+\\))'
+            line('div', title, klass='title')
+
+            with items():
+                item('MC ID', '211')
+                item('PDG ID', 'S008')
+                item('Item type', 'P')
+
+            line('div', 'Unique aliases', klass='section')
+
+            with items():
+                item('Name', 'K(s) (\\(K_s\\))')
+                item('Item type', 'S')
+
+            line('div', 'Generic aliases', klass='section')
+
+            with items():
+                item('Name', 'pi+- (\\(\\pi^\\pm\\))')
+                item('Item type', 'B')
+
+            with items():
+                item('Name', 'pi (\\(\\pi\\))')
+                item('Item type', 'G')
 
     return doc.getvalue()
 
@@ -109,9 +177,16 @@ def dump_particles(api, conn, pdgid):
         dump_generic(api, conn, row.pdgitem_id)
 
 
-if __name__ == '__main__':
+if __name__ == '__main0__':
     import pdg
     from dump_printout import *
     api = pdg.connect()
     conn = api.engine.connect()
-    dump_particles(api, conn, 'S004')
+    # dump_particles(api, conn, 'S004') # muon
+    # dump_particles(api, conn, 'S008') # charged pion
+    dump_particles(api, conn, 'S012') # K(S)0
+
+
+if __name__ == '__main__':
+    html = mock_up()
+    open('mock_up.html', 'w').write(yattag.indent(html) + '\n')

@@ -1,0 +1,23 @@
+.title {
+    font-size: xx-large;
+    margin-bottom: 1em;
+}
+
+html {
+    font-family: sans-serif;
+    font-size: large
+}
+
+.items {
+    padding-bottom: 1em;
+}
+
+.section {
+    font-size: x-large;
+    margin-bottom: 1em;
+    margin-top: 1em;
+}
+
+.value {
+    font-weight: bold;
+}
