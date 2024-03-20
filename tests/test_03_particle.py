@@ -46,9 +46,9 @@ class TestData(unittest.TestCase):
         self.assertEqual(self.api.get_particle_by_mcid(-30323).mcid, -30323)
 
     def test_equivalent_names(self):
-        g = self.api.get_particle_by_name('g')
-        g0 = self.api.get_particle_by_name('g0')
-        self.assertEqual(g.pdgid, g0.pdgid)
+        p1 = self.api.get_particle_by_name('K(S)')
+        p2 = self.api.get_particle_by_name('K(S)0')
+        self.assertEqual(p1.pdgid, p2.pdgid)
 
     def test_generic_names(self):
         self.assertRaises(PdgAmbiguousValueError,
@@ -227,7 +227,7 @@ class TestData(unittest.TestCase):
         self.assertEqual(ps[1].multiplier, 1)
         self.assertIsNone(ps[1].subdecay)
         self.assertEqual(ps[1].item.name, 'gamma')
-        self.assertEqual(ps[1].item.item_type, 'G')
+        self.assertEqual(ps[1].item.item_type, 'P')
         self.assertTrue(ps[1].item.has_particle)
         gamma = ps[1].item.particle
         self.assertIsInstance(gamma, PdgParticle)
@@ -246,10 +246,8 @@ class TestData(unittest.TestCase):
         self.assertEqual(ps[0].multiplier, 1)
         self.assertIsNone(ps[0].subdecay)
         self.assertEqual(ps[0].item.name, 'J/psi(1S)')
-        # self.assertEqual(ps[0].item.item_type, 'P')
-        self.assertEqual(ps[0].item.item_type, 'T')
-        # self.assertTrue(ps[0].item.has_particle)
-        self.assertFalse(ps[0].item.has_particle)
+        self.assertEqual(ps[0].item.item_type, 'P')
+        self.assertTrue(ps[0].item.has_particle)
         # jpsi = ps[0].item.particle
         # self.assertIsInstance(jpsi, PdgParticle)
         # self.assertEqual(jpsi.pdgid, 'M070/2023')
@@ -281,7 +279,7 @@ class TestData(unittest.TestCase):
         self.assertEqual(ps[1].multiplier, 1)
         self.assertIsNone(ps[1].subdecay)
         self.assertEqual(ps[1].item.name, 'gamma')
-        self.assertEqual(ps[1].item.item_type, 'G')
+        self.assertEqual(ps[1].item.item_type, 'P')
         self.assertTrue(ps[1].item.has_particle)
         gamma = ps[1].item.particle
         self.assertIsInstance(gamma, PdgParticle)
