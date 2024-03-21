@@ -176,6 +176,14 @@ def dump_particles_txt(api, conn, pdgid):
         dump_unique_txt(api, conn, row.pdgitem_id)
         dump_generic_txt(api, conn, row.pdgitem_id)
 
+def wraptex(name_tex):
+    if name_tex in [None, '']:
+        # return 'no TeX name'
+        return '\\(\\text{no TeX name}\\)'
+    else:
+        assert name_tex[0] == '$' and name_tex[-1] == '$'
+        return f'\\({name_tex[1:-1]}\\)'
+
 
 def dump_particle(api, conn, name):
     pdgparticle_table = api.db.tables['pdgparticle']
@@ -256,21 +264,21 @@ def dump_particle(api, conn, name):
                 pass
 
         with tag('body'):
-            title = f'PdgParticle {name} (\\({pdgitem_row.name_tex}\\))'
+            title = f'PdgParticle {name} ({wraptex(pdgitem_row.name_tex)})'
             line('div', title, klass='title')
 
             with items():
-                item('MCID', pdgparticle_row.mcid)
-                item('PDGID', pdgparticle_row.pdgid)
-                item('Item type', pdgitem_row.item_type)
+                item('MCID', str(pdgparticle_row.mcid))
+                item('PDGID', str(pdgparticle_row.pdgid))
+                item('Item type', str(pdgitem_row.item_type))
 
             for label, unique in [('Unique', True), ('Generic', False)]:
                 line('div', f'{label} aliases', klass='section')
 
-                with items():
-                    for row in get_aliases(pdgitem_row.id, unique=unique):
-                        item('Name', f'{row.pdgitem_name} (\\({row.pdgitem_name_tex}\\))')
-                        item('Item type', row.pdgitem_item_type)
+                for row in get_aliases(pdgitem_row.id, unique=unique):
+                    with items():
+                        item('Name', f'{row.pdgitem_name} ({wraptex(row.pdgitem_name_tex)})')
+                        item('Item type', str(row.pdgitem_item_type))
 
     return doc.getvalue()
 
@@ -290,7 +298,7 @@ if __name__ == '__main1__':
     open('mock_up.html', 'w').write(yattag.indent(html) + '\n')
 
 
-if __name__ == '__main__':
+if __name__ == '__main2__':
     import pdg
     from dump_printout import *
     api = pdg.connect()
@@ -304,3 +312,26 @@ if __name__ == '__main__':
     html = dump_particle(api, conn, args.name)
     html = yattag.indent(html) + '\n'
     open(f'pdgparticle_{args.name}.html', 'w').write(html)
+
+
+if __name__ == '__main__':
+    import traceback
+    import os
+    os.system('mkdir -p printouts')
+
+    import pdg
+    from dump_printout import *
+    api = pdg.connect()
+    conn = api.engine.connect()
+
+    query = select(api.db.tables['pdgparticle'])
+    for row in conn.execute(query).fetchall():
+        print(row.name)
+        try:
+            html = dump_particle(api, conn, row.name)
+        except Exception as e:
+            traceback.print_exc()
+            continue
+
+        html = yattag.indent(html) + '\n'
+        open(f'printouts/{row.name}.html', 'w').write(html)
