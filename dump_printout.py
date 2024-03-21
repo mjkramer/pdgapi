@@ -113,7 +113,7 @@ def mock_up():
     return doc.getvalue()
 
 
-def dump_item(api, conn, pdgitem_id):
+def dump_item_txt(api, conn, pdgitem_id):
     pdgitem_table = api.db.tables['pdgitem']
     print(f'{pdgitem_id = }')
     query = select(pdgitem_table.c.name, pdgitem_table.c.name_tex,
@@ -129,7 +129,7 @@ def dump_item(api, conn, pdgitem_id):
 
 
 # TODO: Check names are equal
-def dump_generic(api, conn, pdgitem_id, indent=''):
+def dump_generic_txt(api, conn, pdgitem_id, indent=''):
     pdgitem_table = api.db.tables['pdgitem']
     pdgitem_map_table = api.db.tables['pdgitem_map']
     query = select(pdgitem_table, pdgitem_map_table) \
@@ -146,7 +146,7 @@ def dump_generic(api, conn, pdgitem_id, indent=''):
 
 
 # TODO: Check names are equal
-def dump_unique(api, conn, pdgitem_id, indent=''):
+def dump_unique_txt(api, conn, pdgitem_id, indent=''):
     pdgitem_table = api.db.tables['pdgitem']
     pdgitem_map_table = api.db.tables['pdgitem_map']
     query = select(pdgitem_table, pdgitem_map_table) \
@@ -162,7 +162,7 @@ def dump_unique(api, conn, pdgitem_id, indent=''):
         dump_unique(api, conn, row.pdgitem_id, indent + '    ')
 
 
-def dump_particles(api, conn, pdgid):
+def dump_particles_txt(api, conn, pdgid):
     pdgparticle_table = api.db.tables['pdgparticle']
     print(f'{pdgid = }\n')
     query = select(pdgparticle_table.c.name, pdgparticle_table.c.mcid,
@@ -172,9 +172,107 @@ def dump_particles(api, conn, pdgid):
         print(f'{row.name = }')
         print(f'{row.mcid = }')
         print()
-        dump_item(api, conn, row.pdgitem_id)
-        dump_unique(api, conn, row.pdgitem_id)
-        dump_generic(api, conn, row.pdgitem_id)
+        dump_item_txt(api, conn, row.pdgitem_id)
+        dump_unique_txt(api, conn, row.pdgitem_id)
+        dump_generic_txt(api, conn, row.pdgitem_id)
+
+
+def dump_particle(api, conn, name):
+    pdgparticle_table = api.db.tables['pdgparticle']
+    pdgitem_table = api.db.tables['pdgitem']
+    pdgitem_map_table = api.db.tables['pdgitem_map']
+
+    query = select(pdgparticle_table) \
+        .where(pdgparticle_table.c.name == name)
+    rows = conn.execute(query).fetchall()
+    assert len(rows) == 1
+    pdgparticle_row = rows[0]
+
+    query = select(pdgitem_table) \
+        .where(pdgitem_table.c.id == pdgparticle_row.pdgitem_id)
+    rows = conn.execute(query).fetchall()
+    assert len(rows) == 1
+    pdgitem_row = rows[0]
+    assert pdgitem_row.name == pdgparticle_row.name
+
+    def get_aliases(target_id, unique=True):
+        if unique:
+            f = pdgitem_table.c.item_type.in_
+        else:
+            f = pdgitem_table.c.item_type.not_in
+        pred = f(['A', 'W', 'S'])
+
+        query = select(pdgitem_table, pdgitem_map_table) \
+            .join(pdgitem_map_table,
+                  pdgitem_map_table.c.pdgitem_id == pdgitem_table.c.id) \
+            .where(pred & (pdgitem_map_table.c.target_id == target_id)) \
+            .order_by(pdgitem_map_table.c.sort)
+        # query = select(pdgitem_map_table) \
+        #     .where(pred & (pdgitem_map_table.c.target_id == target_id)) \
+        #     .order_by(pdgitem_map_table.c.sort)
+
+        rows = conn.execute(query).fetchall()
+        for row in rows:
+            assert len(get_aliases(row.pdgitem_map_pdgitem_id, True)) == 0
+            assert len(get_aliases(row.pdgitem_map_pdgitem_id, False)) == 0
+
+        return rows
+
+    doc, tag, text, line = Doc().ttl()
+    stag = doc.stag
+
+    def items():
+        return tag('div', klass='items')
+
+    def key(name):
+        return line('span', f'{name}: ', klass='key')
+
+    def value(val):
+        return line('span', val, klass='value')
+
+    def item(k, v):
+        with tag('div', klass='item'):
+            key(k)
+            value(v)
+
+    doc.asis('<!DOCTYPE html>')
+
+    """
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    """
+
+    with tag('html'):
+        with tag('head'):
+            stag('meta', charset='UTF-8')
+            # stag('link', rel='stylesheet', href='printout.css')
+            with tag('style'):
+                text('\n' + open('printout.css').read())
+            line('title', f'PdgParticle {name}')
+            with tag('script', src='https://polyfill.io/v3/polyfill.min.js?features=es6'):
+                pass
+            with tag('script', 'async', id='MathJax-script',
+                     src='https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js'):
+                pass
+
+        with tag('body'):
+            title = f'PdgParticle {name} (\\({pdgitem_row.name_tex}\\))'
+            line('div', title, klass='title')
+
+            with items():
+                item('MCID', pdgparticle_row.mcid)
+                item('PDGID', pdgparticle_row.pdgid)
+                item('Item type', pdgitem_row.item_type)
+
+            for label, unique in [('Unique', True), ('Generic', False)]:
+                line('div', f'{label} aliases', klass='section')
+
+                with items():
+                    for row in get_aliases(pdgitem_row.id, unique=unique):
+                        item('Name', f'{row.pdgitem_name} (\\({row.pdgitem_name_tex}\\))')
+                        item('Item type', row.pdgitem_item_type)
+
+    return doc.getvalue()
 
 
 if __name__ == '__main0__':
@@ -187,6 +285,22 @@ if __name__ == '__main0__':
     dump_particles(api, conn, 'S012') # K(S)0
 
 
-if __name__ == '__main__':
+if __name__ == '__main1__':
     html = mock_up()
     open('mock_up.html', 'w').write(yattag.indent(html) + '\n')
+
+
+if __name__ == '__main__':
+    import pdg
+    from dump_printout import *
+    api = pdg.connect()
+    conn = api.engine.connect()
+
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument('name')
+    args = ap.parse_args()
+
+    html = dump_particle(api, conn, args.name)
+    html = yattag.indent(html) + '\n'
+    open(f'pdgparticle_{args.name}.html', 'w').write(html)
