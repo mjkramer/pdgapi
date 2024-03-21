@@ -53,9 +53,8 @@ class TestData(unittest.TestCase):
     def test_generic_names(self):
         self.assertRaises(PdgAmbiguousValueError,
                           lambda: self.api.get_particle_by_name('e'))
-        ## FIXME: pi is a T instead of a G
-        # self.assertRaises(PdgAmbiguousValueError,
-        #                   lambda: self.api.get_particle_by_name('pi'))
+        self.assertRaises(PdgAmbiguousValueError,
+                          lambda: self.api.get_particle_by_name('pi'))
         mus = list(self.api.get_particles_by_name('mu'))
         self.assertEqual(len(mus), 2)
         self.assertEqual(mus[0].mcid, 13)
@@ -131,27 +130,28 @@ class TestData(unittest.TestCase):
         self.assertEqual(round(W.lifetime_error * 1e25, 3), 0.064)
 
     def test_Kstar_892(self):
-        # self.api.pedantic = False
-        # p = self.api.get('M018')
-        # self.assertTrue(p.is_generic)
-        # self.assertEqual(len(list(p.masses())), 4)
-        # self.assertEqual(len(list(p.widths())), 3)
-        # self.assertEqual(list(p.lifetimes()), [])
-        # self.assertRaises(PdgAmbiguousValueError, lambda: p.mass)
-        # self.assertRaises(PdgAmbiguousValueError, lambda: p.width)
-        # self.assertRaises(PdgAmbiguousValueError, lambda: p.lifetime)
-        # self.assertEqual(p.charge, None)
+        ps = self.api.get('M018')
+        ps = sorted(ps, key=lambda p: p.name)
+        self.assertEqual([p.name for p in ps],
+                         ['K^*(892)+', 'K^*(892)-', 'K^*(892)0', 'Kbar^*(892)0'])
+        self.assertEqual([len(list(p.masses())) for p in ps],
+                         [3, 3, 2, 2])
+        self.assertEqual([len(list(p.widths())) for p in ps],
+                         [2, 2, 1, 1])
+        self.assertEqual([len(list(p.lifetimes())) for p in ps],
+                         [0, 0, 0, 0])
 
-        # self.api.pedantic = True
-        # p = self.api.get('M018')
-        # self.assertTrue(p.is_generic)
-        # self.assertEqual(len(list(p.masses())), 4)
-        # self.assertEqual(len(list(p.widths())), 3)
-        # self.assertEqual(list(p.lifetimes()), [])
-        # self.assertRaises(PdgAmbiguousValueError, lambda: p.mass)
-        # self.assertRaises(PdgAmbiguousValueError, lambda: p.width)
-        # self.assertRaises(PdgNoDataError, lambda: p.lifetime)
-        # self.assertEqual(p.charge, None)
+        self.api.pedantic = True
+        self.assertRaises(PdgAmbiguousValueError, lambda: ps[0].mass)
+        self.assertRaises(PdgAmbiguousValueError, lambda: ps[0].width)
+        self.assertRaises(PdgNoDataError, lambda: ps[0].lifetime)
+        self.assertEqual(ps[0].charge, 1)
+
+        self.api.pedantic = False
+        self.assertIsNotNone(ps[0].mass)
+        self.assertIsNotNone(ps[0].width)
+        self.assertIsNotNone(ps[0].lifetime)
+        self.assertEqual(ps[0].charge, 1)
 
         for self.api.pedantic in [True, False]:
             p = self.api.get_particle_by_mcid(323)
@@ -241,16 +241,14 @@ class TestData(unittest.TestCase):
         ps = list(decay.products)
         self.assertTrue(isinstance(p, PdgDecayProduct) for p in ps)
 
-        # PROBLEM: Missing J/psi(1S) in PDGITEM_MAP
-
         self.assertEqual(ps[0].multiplier, 1)
         self.assertIsNone(ps[0].subdecay)
         self.assertEqual(ps[0].item.name, 'J/psi(1S)')
         self.assertEqual(ps[0].item.item_type, 'P')
         self.assertTrue(ps[0].item.has_particle)
-        # jpsi = ps[0].item.particle
-        # self.assertIsInstance(jpsi, PdgParticle)
-        # self.assertEqual(jpsi.pdgid, 'M070/2023')
+        jpsi = ps[0].item.particle
+        self.assertIsInstance(jpsi, PdgParticle)
+        self.assertEqual(jpsi.pdgid, 'M070/2023')
 
         self.assertEqual(ps[1].multiplier, 1)
         self.assertIsNone(ps[1].subdecay)
@@ -285,8 +283,3 @@ class TestData(unittest.TestCase):
         self.assertIsInstance(gamma, PdgParticle)
         self.assertEqual(gamma.pdgid, 'S000/2023')
 
-
-def harness():
-    import pdg
-    from types import SimpleNamespace
-    self = SimpleNamespace(api=pdg.connect())
