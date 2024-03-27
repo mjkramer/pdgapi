@@ -2,7 +2,7 @@
 
 import argparse
 
-from sqlalchemy import select
+from sqlalchemy import select, distinct
 
 import yattag
 from yattag import Doc
@@ -283,6 +283,75 @@ def dump_particle(api, conn, name):
     return doc.getvalue()
 
 
+def item2items(api, conn, item):
+    pdgitem_map_table = api.db.tables['pdgitem_map']
+
+    query = select(pdgitem_map_table).where(pdgitem_map_table.c.target_id == item)
+    for row in conn.execute(query).fetchall():
+        yield row.pdgitem_id
+        yield from item2items(api, conn, row.pdgitem_id)
+
+
+def pdgid2items(api, conn, pdgid):
+    pdgparticle_table = api.db.tables['pdgparticle']
+    # pdgitem_table = api.db.tables['pdgitem']
+    # pdgitem_map_table = api.db.tables['pdgitem_map']
+
+    items = set()
+
+    query = select(pdgparticle_table).where(pdgparticle_table.c.pdgid == pdgid)
+    for row in conn.execute(query).fetchall():
+        items.add(row.pdgitem_id)
+
+        for item in item2items(api, conn, row.pdgitem_id):
+            items.add(item)
+
+    return items
+
+
+def item2pdgids(api, conn, item):
+    pdgparticle_table = api.db.tables['pdgparticle']
+    pdgitem_map_table = api.db.tables['pdgitem_map']
+
+    query = select(pdgparticle_table).where(pdgparticle_table.c.pdgitem_id == item)
+    rows = conn.execute(query).fetchall()
+    assert len(rows) <= 1
+    for row in rows:
+        yield row.pdgid
+
+    query = select(pdgitem_map_table).where(pdgitem_map_table.c.pdgitem_id == item)
+    for row in conn.execute(query).fetchall():
+        yield from item2pdgids(api, conn, row.target_id)
+
+
+def pdgid2pdgids(api, conn, pdgid):
+    pdgids = set()
+
+    for item in pdgid2items(api, conn, pdgid):
+        for pdgid in item2pdgids(api, conn, item):
+            pdgids.add(pdgid)
+
+    return pdgids
+
+
+def all_pdgid_groups(api, conn):
+    pdgparticle_table = api.db.tables['pdgparticle']
+
+    seen_pdgids = set()
+    groups = []
+
+    query = select(distinct(pdgparticle_table.c.pdgid))
+    for row in conn.execute(query).fetchall():
+        if row.pdgid not in seen_pdgids:
+            group = pdgid2pdgids(api, conn, row.pdgid)
+            groups.append(group)
+            for pdgid in group:
+                seen_pdgids.add(pdgid)
+
+    return groups
+
+
+
 if __name__ == '__main0__':
     import pdg
     from dump_printout import *
@@ -312,6 +381,7 @@ if __name__ == '__main2__':
     html = dump_particle(api, conn, args.name)
     html = yattag.indent(html) + '\n'
     open(f'pdgparticle_{args.name}.html', 'w').write(html)
+
 
 
 if __name__ == '__main__':
