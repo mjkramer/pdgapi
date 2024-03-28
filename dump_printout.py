@@ -392,18 +392,18 @@ def item_data_for_group(api, conn, pdgids):
 
 
 def html_helpers(doc):
-    def key(name):
-        return doc.line('span', f'{name}: ', klass='key')
+    def key(name, klass=''):
+        return doc.line('span', f'{name}: ', klass=f'key {klass}')
 
-    def value(val):
-        return doc.line('span', val, klass='value')
+    def value(val, klass=''):
+        return doc.line('span', val, klass=f'value {klass}')
 
-    def pair(k, v, extra=None):
+    def pair(k, v, extra=None, klass=''):
         with doc.tag('div', klass='pair'):
-            key(k)
-            value(v)
+            key(k, klass=klass)
+            value(v, klass=klass)
             if extra:
-                doc.line('span', ' ' + extra, klass='extra')
+                doc.line('span', ' ' + extra, klass=f'extra {klass}')
 
     def pairs():
         return doc.tag('div', klass='pairs')
@@ -433,7 +433,9 @@ def dump_item(api, conn, row):
             .where(pdgitem_map_table.c.pdgitem_id == row.id)
         targets = conn.execute(query).fetchall()
         if targets:
-            pair('Targets', ', '.join(t.pdgitem_name for t in targets))
+            klass = 'suspect' if row.item_type == 'P' else ''
+            pair('Targets', ', '.join(t.pdgitem_name for t in targets),
+                 klass=klass)
 
     return yattag.indent(doc.getvalue()) + '\n'
 
@@ -503,6 +505,7 @@ def dump_all(api, conn):
     os.mkdir('printouts')
 
     for group in groups:
+        group = sorted(group)
         name = '_'.join(pdgid for pdgid in group)
         html = dump_page(api, conn, group)
         open(f'printouts/{name}.html', 'w').write(html)

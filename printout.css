@@ -25,3 +25,7 @@ html {
 .extra {
     font-weight: normal;
 }
+
+.suspect {
+    color: #aa0000;
+}
