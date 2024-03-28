@@ -422,6 +422,27 @@ def dump_item(api, conn, row):
     return yattag.indent(doc.getvalue()) + '\n'
 
 
+def format_title(api, conn, pdgids):
+    pdgparticle_table = api.db.tables['pdgparticle']
+
+    parts = []
+
+    for pdgid in pdgids:
+        query = select(pdgparticle_table.c.name) \
+            .where(pdgparticle_table.c.pdgid == pdgid)
+        rows = conn.execute(query).fetchall()
+        assert len(rows) > 0
+        if len(rows) == 1:
+            descrip = rows[0].name
+        elif len(rows) == 2 and len(rows[1]) <= 5:
+            descrip = f'{rows[0].name}, {rows[1].name}'
+        else:
+            descrip = f'{rows[0].name}, ...'
+        parts.append(f'{pdgid} ({descrip})')
+
+    return ', '.join(parts)
+
+
 def dump_group(api, conn, pdgids):
     item_data = item_data_for_group(api, conn, pdgids)
 
