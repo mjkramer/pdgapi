@@ -379,6 +379,9 @@ def item_data_for_group(api, conn, pdgids):
 
 
 def dump_item(api, conn, row):
+    pdgitem_table = api.db.tables['pdgitem']
+    pdgitem_map_table = api.db.tables['pdgitem_map']
+
     doc, tag, text, line = Doc().ttl()
     stag = doc.stag
 
@@ -404,6 +407,15 @@ def dump_item(api, conn, row):
         if row.mcid:
             pair('MCID', row.mcid)
 
+        query = select(pdgitem_map_table, pdgitem_table) \
+            .join(pdgitem_table,
+                  pdgitem_map_table.c.target_id == pdgitem_table.c.id) \
+            .where(pdgitem_map_table.c.pdgitem_id == row.id)
+        targets = conn.execute(query).fetchall()
+        if targets:
+            pair('Targets', ', '.join(t.pdgitem_name for t in targets))
+
+
     return yattag.indent(doc.getvalue()) + '\n'
 
 
@@ -412,6 +424,7 @@ if __name__ == '__main0__':
     from dump_printout import *
     api = pdg.connect()
     conn = api.engine.connect()
+    print(dump_item(api, conn, get_item_data(api, conn, [5567])[0]))
     for g in all_pdgid_groups(api, conn):
         print(g)
         for row in item_data_for_group(api, conn, g):
