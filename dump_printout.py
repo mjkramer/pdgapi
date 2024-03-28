@@ -378,26 +378,30 @@ def item_data_for_group(api, conn, pdgids):
     return get_item_data(api, conn, items)
 
 
+def html_helpers(doc):
+    def key(name):
+        return doc.line('span', f'{name}: ', klass='key')
+
+    def value(val):
+        return doc.line('span', val, klass='value')
+
+    def pair(k, v):
+        with doc.tag('div', klass='pair'):
+            key(k)
+            value(v)
+
+    def pairs():
+        return doc.tag('div', klass='pairs')
+
+    return pair, pairs
+
+
 def dump_item(api, conn, row):
     pdgitem_table = api.db.tables['pdgitem']
     pdgitem_map_table = api.db.tables['pdgitem_map']
 
-    doc, tag, text, line = Doc().ttl()
-    stag = doc.stag
-
-    def pairs():
-        return tag('div', klass='pairs')
-
-    def key(name):
-        return line('span', f'{name}: ', klass='key')
-
-    def value(val):
-        return line('span', val, klass='value')
-
-    def pair(k, v):
-        with tag('div', klass='pair'):
-            key(k)
-            value(v)
+    doc = Doc()
+    pair, pairs = html_helpers(doc)
 
     with pairs():
         pair('Name', row.name)
@@ -414,7 +418,6 @@ def dump_item(api, conn, row):
         targets = conn.execute(query).fetchall()
         if targets:
             pair('Targets', ', '.join(t.pdgitem_name for t in targets))
-
 
     return yattag.indent(doc.getvalue()) + '\n'
 
