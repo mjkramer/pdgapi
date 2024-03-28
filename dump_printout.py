@@ -422,6 +422,24 @@ def dump_item(api, conn, row):
     return yattag.indent(doc.getvalue()) + '\n'
 
 
+def dump_group(api, conn, pdgids):
+    item_data = item_data_for_group(api, conn, pdgids)
+
+    html = ''
+
+    def dump_for_cond(cond):
+        nonlocal html
+        for row in item_data:
+            if cond(row):
+                html += dump_item(api, conn, row)
+
+    dump_for_cond(lambda row: row.item_type == 'P')
+    dump_for_cond(lambda row: row.item_type in ['A', 'W', 'S'])
+    dump_for_cond(lambda row: row.item_type in ['G', 'B'])
+    dump_for_cond(lambda row: row.item_type not in ['P', 'A', 'W', 'S', 'G', 'B'])
+
+    return html
+
 if __name__ == '__main0__':
     import pdg
     from dump_printout import *
