@@ -52,8 +52,8 @@ def mock_up():
     doc, tag, text, line = Doc().ttl()
     stag = doc.stag
 
-    def items():
-        return tag('div', klass='items')
+    def pairs():
+        return tag('div', klass='pairs')
 
     def key(name):
         return line('span', f'{name}: ', klass='key')
@@ -61,8 +61,8 @@ def mock_up():
     def value(val):
         return line('span', val, klass='value')
 
-    def item(k, v):
-        with tag('div', klass='item'):
+    def pair(k, v):
+        with tag('div', klass='pair'):
             key(k)
             value(v)
 
@@ -89,26 +89,26 @@ def mock_up():
             title = 'PdgParticle pi+ (\\(\\pi^+\\))'
             line('div', title, klass='title')
 
-            with items():
-                item('MC ID', '211')
-                item('PDG ID', 'S008')
-                item('Item type', 'P')
+            with pairs():
+                pair('MC ID', '211')
+                pair('PDG ID', 'S008')
+                pair('Item type', 'P')
 
             line('div', 'Unique aliases', klass='section')
 
-            with items():
-                item('Name', 'K(s) (\\(K_s\\))')
-                item('Item type', 'S')
+            with pairs():
+                pair('Name', 'K(s) (\\(K_s\\))')
+                pair('Item type', 'S')
 
             line('div', 'Generic aliases', klass='section')
 
-            with items():
-                item('Name', 'pi+- (\\(\\pi^\\pm\\))')
-                item('Item type', 'B')
+            with pairs():
+                pair('Name', 'pi+- (\\(\\pi^\\pm\\))')
+                pair('Item type', 'B')
 
-            with items():
-                item('Name', 'pi (\\(\\pi\\))')
-                item('Item type', 'G')
+            with pairs():
+                pair('Name', 'pi (\\(\\pi\\))')
+                pair('Item type', 'G')
 
     return doc.getvalue()
 
@@ -229,8 +229,8 @@ def dump_particle(api, conn, name):
     doc, tag, text, line = Doc().ttl()
     stag = doc.stag
 
-    def items():
-        return tag('div', klass='items')
+    def pairs():
+        return tag('div', klass='pairs')
 
     def key(name):
         return line('span', f'{name}: ', klass='key')
@@ -238,8 +238,8 @@ def dump_particle(api, conn, name):
     def value(val):
         return line('span', val, klass='value')
 
-    def item(k, v):
-        with tag('div', klass='item'):
+    def pair(k, v):
+        with tag('div', klass='pair'):
             key(k)
             value(v)
 
@@ -267,18 +267,18 @@ def dump_particle(api, conn, name):
             title = f'PdgParticle {name} ({wraptex(pdgitem_row.name_tex)})'
             line('div', title, klass='title')
 
-            with items():
-                item('MCID', str(pdgparticle_row.mcid))
-                item('PDGID', str(pdgparticle_row.pdgid))
-                item('Item type', str(pdgitem_row.item_type))
+            with pairs():
+                pair('MCID', str(pdgparticle_row.mcid))
+                pair('PDGID', str(pdgparticle_row.pdgid))
+                pair('Item type', str(pdgitem_row.item_type))
 
             for label, unique in [('Unique', True), ('Generic', False)]:
                 line('div', f'{label} aliases', klass='section')
 
                 for row in get_aliases(pdgitem_row.id, unique=unique):
-                    with items():
-                        item('Name', f'{row.pdgitem_name} ({wraptex(row.pdgitem_name_tex)})')
-                        item('Item type', str(row.pdgitem_item_type))
+                    with pairs():
+                        pair('Name', f'{row.pdgitem_name} ({wraptex(row.pdgitem_name_tex)})')
+                        pair('Item type', str(row.pdgitem_item_type))
 
     return doc.getvalue()
 
@@ -351,15 +351,75 @@ def all_pdgid_groups(api, conn):
     return groups
 
 
+def group2items(api, conn, pdgids):
+    items = set()
+    for pdgid in pdgids:
+        for item in pdgid2items(api, conn, pdgid):
+            items.add(item)
+
+    return items
+
+
+def get_item_data(api, conn, items):
+    pdgitem_table = api.db.tables['pdgitem']
+    pdgparticle_table = api.db.tables['pdgparticle']
+    query = select(pdgitem_table, pdgparticle_table.c.pdgid, pdgparticle_table.c.mcid) \
+        .join(pdgparticle_table,
+              pdgitem_table.c.id == pdgparticle_table.c.pdgitem_id,
+              isouter=True) \
+        .where(pdgitem_table.c.id.in_(list(items))) \
+        .order_by(pdgitem_table.c.id)
+    return conn.execute(query).fetchall()
+
+
+def item_data_for_group(api, conn, pdgids):
+    items = group2items(api, conn, pdgids)
+
+    return get_item_data(api, conn, items)
+
+
+def dump_item(api, conn, row):
+    doc, tag, text, line = Doc().ttl()
+    stag = doc.stag
+
+    def pairs():
+        return tag('div', klass='pairs')
+
+    def key(name):
+        return line('span', f'{name}: ', klass='key')
+
+    def value(val):
+        return line('span', val, klass='value')
+
+    def pair(k, v):
+        with tag('div', klass='pair'):
+            key(k)
+            value(v)
+
+    with pairs():
+        pair('Name', row.name)
+        pair('Item type', row.item_type)
+        if row.pdgid:
+            pair('PDGID', row.pdgid)
+        if row.mcid:
+            pair('MCID', row.mcid)
+
+    return yattag.indent(doc.getvalue()) + '\n'
+
 
 if __name__ == '__main0__':
     import pdg
     from dump_printout import *
     api = pdg.connect()
     conn = api.engine.connect()
+    for g in all_pdgid_groups(api, conn):
+        print(g)
+        for row in item_data_for_group(api, conn, g):
+            print(row)
+        print()
     # dump_particles(api, conn, 'S004') # muon
     # dump_particles(api, conn, 'S008') # charged pion
-    dump_particles(api, conn, 'S012') # K(S)0
+    # dump_particles(api, conn, 'S012') # K(S)0
 
 
 if __name__ == '__main1__':
