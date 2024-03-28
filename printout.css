@@ -21,3 +21,7 @@ html {
 .value {
     font-weight: bold;
 }
+
+.extra {
+    font-weight: normal;
+}

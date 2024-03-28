@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 
 from sqlalchemy import select, distinct
 
@@ -9,6 +10,18 @@ from yattag import Doc
 
 import pdg
 
+
+ITEM_TYPES = {
+    'P': 'specific charge',
+    'A': '"also" alias',
+    'W': '"was" alias',
+    'S': 'shortcut',
+    'B': 'both charges',
+    'C': 'both charges, conjugate',
+    'G': 'generic',
+    'L': 'list',
+    'T': 'text'
+}
 
 
 def get_props(cls):
@@ -385,10 +398,12 @@ def html_helpers(doc):
     def value(val):
         return doc.line('span', val, klass='value')
 
-    def pair(k, v):
+    def pair(k, v, extra=None):
         with doc.tag('div', klass='pair'):
             key(k)
             value(v)
+            if extra:
+                doc.line('span', ' ' + extra, klass='extra')
 
     def pairs():
         return doc.tag('div', klass='pairs')
@@ -405,7 +420,8 @@ def dump_item(api, conn, row):
 
     with pairs():
         pair('Name', row.name)
-        pair('Item type', row.item_type)
+        pair('Item type', row.item_type,
+             extra=f'({ITEM_TYPES[row.item_type]})')
         if row.pdgid:
             pair('PDGID', row.pdgid)
         if row.mcid:
@@ -422,7 +438,7 @@ def dump_item(api, conn, row):
     return yattag.indent(doc.getvalue()) + '\n'
 
 
-def format_title(api, conn, pdgids):
+def describe_pdgids(api, conn, pdgids):
     pdgparticle_table = api.db.tables['pdgparticle']
 
     parts = []
@@ -434,7 +450,7 @@ def format_title(api, conn, pdgids):
         assert len(rows) > 0
         if len(rows) == 1:
             descrip = rows[0].name
-        elif len(rows) == 2 and len(rows[1]) <= 5:
+        elif len(rows) == 2 and len(rows[1].name) <= 5:
             descrip = f'{rows[0].name}, {rows[1].name}'
         else:
             descrip = f'{rows[0].name}, ...'
@@ -448,30 +464,62 @@ def dump_group(api, conn, pdgids):
 
     html = ''
 
-    def dump_for_cond(cond):
-        nonlocal html
+    for item_type in 'PAWSBCGLT':
         for row in item_data:
-            if cond(row):
+            if row.item_type == item_type:
                 html += dump_item(api, conn, row)
-
-    dump_for_cond(lambda row: row.item_type == 'P')
-    dump_for_cond(lambda row: row.item_type in ['A', 'W', 'S'])
-    dump_for_cond(lambda row: row.item_type in ['G', 'B'])
-    dump_for_cond(lambda row: row.item_type not in ['P', 'A', 'W', 'S', 'G', 'B'])
 
     return html
 
-if __name__ == '__main0__':
+def dump_page(api, conn, pdgids):
+    doc, tag, text, line = Doc().ttl()
+    stag = doc.stag
+
+    doc.asis('<!DOCTYPE html>')
+
+    with tag('html'):
+        with tag('head'):
+            stag('meta', charset='UTF-8')
+            # stag('link', rel='stylesheet', href='printout.css')
+            with tag('style'):
+                text('\n' + open('printout.css').read())
+            line('title', ', '.join(pdgids))
+            # with tag('script', src='https://polyfill.io/v3/polyfill.min.js?features=es6'):
+            #     pass
+            # with tag('script', 'async', id='MathJax-script',
+            #          src='https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js'):
+            #     pass
+
+        with tag('body'):
+            descrip = describe_pdgids(api, conn, pdgids)
+            line('div', f'Names for {descrip}', klass='title')
+            doc.asis(dump_group(api, conn, pdgids))
+
+    return yattag.indent(doc.getvalue()) + '\n'
+
+def dump_all(api, conn):
+    groups = all_pdgid_groups(api, conn)
+
+    os.mkdir('printouts')
+
+    for group in groups:
+        name = '_'.join(pdgid for pdgid in group)
+        html = dump_page(api, conn, group)
+        open(f'printouts/{name}.html', 'w').write(html)
+
+
+if __name__ == '__main__':
     import pdg
-    from dump_printout import *
+    # from dump_printout import *
     api = pdg.connect()
     conn = api.engine.connect()
-    print(dump_item(api, conn, get_item_data(api, conn, [5567])[0]))
-    for g in all_pdgid_groups(api, conn):
-        print(g)
-        for row in item_data_for_group(api, conn, g):
-            print(row)
-        print()
+    dump_all(api, conn)
+    # print(dump_item(api, conn, get_item_data(api, conn, [5567])[0]))
+    # for g in all_pdgid_groups(api, conn):
+    #     print(g)
+    #     for row in item_data_for_group(api, conn, g):
+    #         print(row)
+    #     print()
     # dump_particles(api, conn, 'S004') # muon
     # dump_particles(api, conn, 'S008') # charged pion
     # dump_particles(api, conn, 'S012') # K(S)0
@@ -499,7 +547,7 @@ if __name__ == '__main2__':
 
 
 
-if __name__ == '__main__':
+if __name__ == '__main4__':
     import traceback
     import os
     os.system('mkdir -p printouts')
