@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from collections import defaultdict
+from functools import lru_cache
 import os
 
 from sqlalchemy import select, distinct
@@ -8,7 +10,6 @@ import yattag
 from yattag import Doc
 
 import pdg
-
 
 ITEM_TYPES = {
     'P': 'specific charge',
@@ -24,6 +25,7 @@ ITEM_TYPES = {
 
 
 def item2items(api, conn, item):
+    "Returns a generator of PDGITEMs that refer to the provided one"
     pdgitem_map_table = api.db.tables['pdgitem_map']
 
     query = select(pdgitem_map_table).where(pdgitem_map_table.c.target_id == item)
@@ -33,6 +35,7 @@ def item2items(api, conn, item):
 
 
 def pdgid2items(api, conn, pdgid):
+    "Returns the set of all PDGITEMs that refer to the provided PDGID"
     pdgparticle_table = api.db.tables['pdgparticle']
     # pdgitem_table = api.db.tables['pdgitem']
     # pdgitem_map_table = api.db.tables['pdgitem_map']
@@ -50,6 +53,7 @@ def pdgid2items(api, conn, pdgid):
 
 
 def item2pdgids(api, conn, item):
+    "Returns a set of all of the PDGIDs referred to by the provided PDGITEM"
     pdgparticle_table = api.db.tables['pdgparticle']
     pdgitem_map_table = api.db.tables['pdgitem_map']
 
@@ -65,6 +69,8 @@ def item2pdgids(api, conn, item):
 
 
 def pdgid2pdgids(api, conn, pdgid):
+    """Returns a set of all PDGIDs (including the provided one) that have a
+    PDGITEM in common with the provided PDGID"""
     pdgids = set()
 
     for item in pdgid2items(api, conn, pdgid):
@@ -75,6 +81,7 @@ def pdgid2pdgids(api, conn, pdgid):
 
 
 def all_pdgid_groups(api, conn):
+    "Returns all sets of PDGIDs connected by common PDGITEMs (see pdgid2pdgids)"
     pdgparticle_table = api.db.tables['pdgparticle']
 
     seen_pdgids = set()
@@ -92,6 +99,7 @@ def all_pdgid_groups(api, conn):
 
 
 def group2items(api, conn, pdgids):
+    "Returns all PDGITEMs associated with a set of PDGIDs"
     items = set()
     for pdgid in pdgids:
         for item in pdgid2items(api, conn, pdgid):
@@ -221,22 +229,155 @@ def dump_page(api, conn, pdgids):
             #     pass
 
         with tag('body'):
-            descrip = describe_pdgids(api, conn, pdgids)
-            line('div', f'Names for {descrip}', klass='title')
+            # descrip = describe_pdgids(api, conn, pdgids)
+            # line('div', f'Names for {descrip}', klass='title')
             doc.asis(dump_group(api, conn, pdgids))
 
     return yattag.indent(doc.getvalue()) + '\n'
 
+
+@lru_cache
+def _pdgid2category(api, conn):
+    result = {}
+    pdgparticle_table = api.db.tables['pdgparticle']
+    query = select(pdgparticle_table)
+    rows = conn.execute(query).fetchall()
+    for row in rows:
+        category = get_category(row.name)
+        if row.pdgid in result:
+            assert result[row.pdgid] == category
+        else:
+            result[row.pdgid] = category
+    return result
+
+
+def pdgid2category(api, conn, pdgid):
+    return _pdgid2category(api, conn)[pdgid]
+
+
+def get_metagroups(api, conn, groups):
+    metagroups = defaultdict(lambda: [])
+    for group in groups:
+        for pdgid in group:
+            category = pdgid2category(api, conn, pdgid)
+            metagroups[category].append(pdgid)
+    return metagroups
+
+
 def dump_all(api, conn):
     groups = all_pdgid_groups(api, conn)
+    metagroups = get_metagroups(api, conn, groups)
 
     os.mkdir('printouts')
 
-    for group in groups:
+    for category, group in metagroups.items():
         group = sorted(group)
-        name = '_'.join(pdgid for pdgid in group)
+        name = category.replace(' ', '_').replace('/', '_')
         html = dump_page(api, conn, group)
         open(f'printouts/{name}.html', 'w').write(html)
+
+
+def is_gauge_or_higgs(name):
+    return name in ['gamma', 'g', 'graviton', 'W+', 'W-', 'Z0', 'H0']
+
+def is_lepton(name):
+    return name in ['e-', 'e+', 'mu-', 'mu+', 'tau-', 'tau+']
+
+def is_quark(name):
+    quarks = 'udscbt'
+    return any(name == q or name == q + 'bar'
+               for q in quarks)
+
+def member(name: str, multiplet_name: str):
+    # strip anything in parens
+    if (p := name.find('(')) != -1:
+        name = name[:p] + name[name.find(')')+1:]
+    suffixes = ['', '0', 'bar', 'bar0', '0bar', '-', '+', 'bar-', 'bar+']
+    # suffixes = ['']
+    return any(name.startswith(multiplet_name + suffix)
+               for suffix in suffixes)
+
+def is_unflavored_meson(name):
+    multiplets = ['pi', 'eta', 'eta^\'', 'rho', 'omega', 'phi', 'a_', 'b_', 'f_', 'h_']
+    return any(member(name, m) for m in multiplets)
+
+def is_strange_meson(name):
+    return name.startswith('K')
+
+def is_charmed_meson(name):
+    return name.startswith('D')
+
+def is_bottom_meson(name):
+    return name.startswith('B')
+
+def is_charmonium(name):
+    multiplets = ['eta_c', 'J/psi', 'psi', 'chi_c', 'h_c']
+    return any(member(name, m) for m in multiplets)
+
+def is_bottomonium(name):
+    multiplets = ['Upsilon', 'chi_b', 'h_b', 'chi_b']
+    return any(member(name, m) for m in multiplets)
+
+def is_N_baryon(name):
+    multiplets = ['p', 'n', 'N']
+    return any(member(name, m) for m in multiplets) \
+        and not name.startswith('pi')
+
+def is_delta_baryon(name):
+    return member(name, 'Delta')
+
+def is_lambda_baryon(name):
+    return member(name, 'Lambda')
+
+def is_sigma_baryon(name):
+    return member(name, 'Sigma')
+
+def is_xi_baryon(name):
+    return member(name, 'Xi')
+
+def is_omega_baryon(name):
+    return member(name, 'Omega')
+
+def is_exotic(name):
+    return any(name.startswith(c) for c in 'PTRXYZ') \
+        and name != 'Z0'
+
+def get_category(name):
+    if is_gauge_or_higgs(name):
+        return 'Gauge/Higgs bosons'
+    if is_lepton(name):
+        return 'Leptons'
+    if is_quark(name):
+        return 'Quarks'
+    if is_unflavored_meson(name):
+        return 'Unflavored mesons'
+    if is_strange_meson(name):
+        return 'Strange mesons'
+    if is_charmed_meson(name):
+        return 'Charmed mesons'
+    if is_bottom_meson(name):
+        return 'Bottom mesons'
+    if is_charmonium(name):
+        return 'Charmonia'
+    if is_bottomonium(name):
+        return 'Bottomonia'
+    if is_N_baryon(name):
+        return 'N baryons'
+    if is_delta_baryon(name):
+        return 'Delta baryons'
+    if is_lambda_baryon(name):
+        return 'Lambda baryons'
+    if is_sigma_baryon(name):
+        return 'Sigma baryons'
+    if is_xi_baryon(name):
+        return 'Xi baryons'
+    if is_omega_baryon(name):
+        return 'Omega baryons'
+    if is_sigma_baryon(name):
+        return 'Sigma baryons'
+    if is_exotic(name):
+        return 'Exotic states'
+    return 'Error'
 
 
 if __name__ == '__main__':
