@@ -146,11 +146,10 @@ def html_helpers(doc):
     return pair, pairs
 
 
-def dump_item(api, conn, row):
+def dump_item(api, conn, doc, row):
     pdgitem_table = api.db.tables['pdgitem']
     pdgitem_map_table = api.db.tables['pdgitem_map']
 
-    doc = Doc()
     pair, pairs = html_helpers(doc)
 
     with pairs():
@@ -172,7 +171,7 @@ def dump_item(api, conn, row):
             pair('Targets', ', '.join(t.pdgitem_name for t in targets),
                  klass=klass)
 
-    return yattag.indent(doc.getvalue()) + '\n'
+    # return yattag.indent(doc.getvalue()) + '\n'
 
 
 def describe_pdgids(api, conn, pdgids):
@@ -199,17 +198,20 @@ def describe_pdgids(api, conn, pdgids):
 def dump_group(api, conn, pdgids):
     item_data = item_data_for_group(api, conn, pdgids)
 
-    html = ''
+    # html = ''
 
     # for item_type in 'PAWSBCGLT':
     #     for row in item_data:
     #         if row.item_type == item_type:
     #             html += dump_item(api, conn, row)
 
-    for row in item_data:
-        html += dump_item(api, conn, row)
+    doc = Doc()
 
-    return html
+    for row in item_data:
+        dump_item(api, conn, doc, row)
+
+    # return html
+    return yattag.indent(doc.getvalue()) + '\n'
 
 def dump_page(api, conn, category, pdgids):
     doc, tag, text, line = Doc().ttl()
