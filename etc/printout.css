@@ -29,3 +29,27 @@ html {
 .suspect {
     color: #aa0000;
 }
+
+table {
+    /* margin-left: -2em; */
+}
+
+th, td {
+    padding-right: 2em;
+}
+
+th {
+    padding-bottom: 1em;
+}
+
+thead {
+    font-weight: normal;
+}
+
+th {
+    font-weight: normal;
+}
+
+tbody {
+    font-weight: bold;
+}

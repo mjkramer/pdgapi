@@ -146,7 +146,7 @@ def html_helpers(doc):
     return pair, pairs
 
 
-def dump_item(api, conn, doc, row):
+def dump_item_old(api, conn, doc, row):
     pdgitem_table = api.db.tables['pdgitem']
     pdgitem_map_table = api.db.tables['pdgitem_map']
 
@@ -172,6 +172,30 @@ def dump_item(api, conn, doc, row):
                  klass=klass)
 
     # return yattag.indent(doc.getvalue()) + '\n'
+
+
+def dump_item(api, conn, doc, row):
+    pdgitem_table = api.db.tables['pdgitem']
+    pdgitem_map_table = api.db.tables['pdgitem_map']
+
+    _, tag, text, line = doc.ttl()
+
+    line('td', row.name)
+    #line('td', row.item_type)
+    doc.asis(f'<td>{row.item_type} <span class="extra">({ITEM_TYPES[row.item_type]})</span>')
+    line('td', row.pdgid if row.pdgid else '')
+    line('td', row.mcid if row.mcid else '')
+
+    query = select(pdgitem_map_table, pdgitem_table) \
+        .join(pdgitem_table,
+                pdgitem_map_table.c.target_id == pdgitem_table.c.id) \
+        .where(pdgitem_map_table.c.pdgitem_id == row.id)
+    targets = conn.execute(query).fetchall()
+    if targets:
+        klass = 'suspect' if row.item_type == 'P' else ''
+        line('td', ', '.join(t.pdgitem_name for t in targets), klass=klass)
+    else:
+        line('td', '')
 
 
 def describe_pdgids(api, conn, pdgids):
@@ -205,10 +229,23 @@ def dump_group(api, conn, pdgids):
     #         if row.item_type == item_type:
     #             html += dump_item(api, conn, row)
 
-    doc = Doc()
+    doc, tag, text, line = Doc().ttl()
 
-    for row in item_data:
-        dump_item(api, conn, doc, row)
+    with tag('table'):
+        with tag('thead'):
+            with tag('tr'):
+                line('th', 'Name')
+                line('th', 'Item type')
+                line('th', 'PDGID')
+                line('th', 'MCID')
+                line('th', 'Targets')
+        with tag('tbody'):
+            for row in item_data:
+                with tag('tr'):
+                    dump_item(api, conn, doc, row)
+
+    # for row in item_data:
+    #     dump_item(api, conn, doc, row)
 
     # return html
     return yattag.indent(doc.getvalue()) + '\n'
