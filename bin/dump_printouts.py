@@ -134,7 +134,7 @@ def html_helpers(doc):
         return doc.line('span', val, klass=f'value {klass}')
 
     def pair(k, v, extra=None, klass=''):
-        with doc.tag('div', klass='pair'):
+        with doc.tag('span', klass='pair'):
             key(k, klass=klass)
             value(v, klass=klass)
             if extra:
@@ -201,14 +201,17 @@ def dump_group(api, conn, pdgids):
 
     html = ''
 
-    for item_type in 'PAWSBCGLT':
-        for row in item_data:
-            if row.item_type == item_type:
-                html += dump_item(api, conn, row)
+    # for item_type in 'PAWSBCGLT':
+    #     for row in item_data:
+    #         if row.item_type == item_type:
+    #             html += dump_item(api, conn, row)
+
+    for row in item_data:
+        html += dump_item(api, conn, row)
 
     return html
 
-def dump_page(api, conn, pdgids):
+def dump_page(api, conn, category, pdgids):
     doc, tag, text, line = Doc().ttl()
     stag = doc.stag
 
@@ -231,6 +234,7 @@ def dump_page(api, conn, pdgids):
         with tag('body'):
             # descrip = describe_pdgids(api, conn, pdgids)
             # line('div', f'Names for {descrip}', klass='title')
+            line('div', category, klass='title')
             doc.asis(dump_group(api, conn, pdgids))
 
     return yattag.indent(doc.getvalue()) + '\n'
@@ -272,8 +276,8 @@ def dump_all(api, conn):
 
     for category, group in metagroups.items():
         group = sorted(group)
-        name = category.replace(' ', '_').replace('/', '_')
-        html = dump_page(api, conn, group)
+        name = category.replace(' ', '_').replace('/', '_').replace("'", '_prime')
+        html = dump_page(api, conn, category, group)
         open(f'printouts/{name}.html', 'w').write(html)
 
 
@@ -298,14 +302,40 @@ def member(name: str, multiplet_name: str):
                for suffix in suffixes)
 
 def is_unflavored_meson(name):
+    if (name.find('_c') != -1) or (name.find('_b') != -1):
+        return False
     multiplets = ['pi', 'eta', 'eta^\'', 'rho', 'omega', 'phi', 'a_', 'b_', 'f_', 'h_']
     return any(member(name, m) for m in multiplets)
+
+def is_pion(name):
+    return is_unflavored_meson(name) and member(name, 'pi')
+
+def is_eta(name):
+    return is_unflavored_meson(name) and (member(name, 'eta') or member(name, 'eta^'))
+
+def is_rho(name):
+    return is_unflavored_meson(name) and member(name, 'rho')
+
+def is_omega(name):
+    return is_unflavored_meson(name) and member(name, 'omega')
+
+def is_a(name):
+    return is_unflavored_meson(name) and member(name, 'a_')
+
+def is_b(name):
+    return is_unflavored_meson(name) and member(name, 'b_')
+
+def is_f(name):
+    return is_unflavored_meson(name) and member(name, 'f_')
+
+def is_h(name):
+    return is_unflavored_meson(name) and member(name, 'h_')
 
 def is_strange_meson(name):
     return name.startswith('K')
 
 def is_charmed_meson(name):
-    return name.startswith('D')
+    return name.startswith('D') and not name.startswith('Delta')
 
 def is_bottom_meson(name):
     return name.startswith('B')
@@ -315,13 +345,13 @@ def is_charmonium(name):
     return any(member(name, m) for m in multiplets)
 
 def is_bottomonium(name):
-    multiplets = ['Upsilon', 'chi_b', 'h_b', 'chi_b']
+    multiplets = ['Upsilon', 'eta_b', 'chi_b', 'h_b', 'chi_b']
     return any(member(name, m) for m in multiplets)
 
 def is_N_baryon(name):
     multiplets = ['p', 'n', 'N']
     return any(member(name, m) for m in multiplets) \
-        and not name.startswith('pi')
+        and not (name.startswith('pi') or name.startswith('phi'))
 
 def is_delta_baryon(name):
     return member(name, 'Delta')
@@ -338,9 +368,12 @@ def is_xi_baryon(name):
 def is_omega_baryon(name):
     return member(name, 'Omega')
 
-def is_exotic(name):
-    return any(name.startswith(c) for c in 'PTRXYZ') \
-        and name != 'Z0'
+def is_tetra_penta(name):
+    return name.startswith('P') or name.startswith('T')
+
+def is_unclassified(name):
+    return any(name.startswith(c) for c in 'RXYZ') \
+        and name != 'Z0' and not name.startswith('Xi')
 
 def get_category(name):
     if is_gauge_or_higgs(name):
@@ -349,8 +382,22 @@ def get_category(name):
         return 'Leptons'
     if is_quark(name):
         return 'Quarks'
-    if is_unflavored_meson(name):
-        return 'Unflavored mesons'
+    if is_pion(name):
+        return 'Pions'
+    if is_eta(name):
+        return 'Light eta mesons'
+    if is_rho(name):
+        return 'Rho mesons'
+    if is_omega(name):
+        return 'Omega mesons'
+    if is_a(name):
+        return 'a mesons'
+    if is_b(name):
+        return 'b mesons'
+    if is_f(name):
+        return 'f mesons'
+    if is_h(name):
+        return 'Light h mesons'
     if is_strange_meson(name):
         return 'Strange mesons'
     if is_charmed_meson(name):
@@ -375,8 +422,10 @@ def get_category(name):
         return 'Omega baryons'
     if is_sigma_baryon(name):
         return 'Sigma baryons'
-    if is_exotic(name):
-        return 'Exotic states'
+    if is_tetra_penta(name):
+        return 'Tetraquarks and pentaquarks'
+    if is_unclassified(name):
+        return 'Unclassified states'
     return 'Error'
 
 
