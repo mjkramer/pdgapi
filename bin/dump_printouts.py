@@ -12,7 +12,7 @@ from yattag import Doc
 import pdg
 
 ITEM_TYPES = {
-    'P': 'specific charge',
+    'P': 'specific',
     'A': '"also" alias',
     'W': '"was" alias',
     'S': 'shortcut',
@@ -111,7 +111,7 @@ def group2items(api, conn, pdgids):
 def get_item_data(api, conn, items):
     pdgitem_table = api.db.tables['pdgitem']
     pdgparticle_table = api.db.tables['pdgparticle']
-    query = select(pdgitem_table, pdgparticle_table.c.pdgid, pdgparticle_table.c.mcid) \
+    query = select(pdgitem_table, pdgparticle_table) \
         .join(pdgparticle_table,
               pdgitem_table.c.id == pdgparticle_table.c.pdgitem_id,
               isouter=True) \
@@ -180,11 +180,20 @@ def dump_item(api, conn, doc, row):
 
     _, tag, text, line = doc.ttl()
 
+    def maybe(v):
+        return v if v else ''
+
     line('td', row.name)
     #line('td', row.item_type)
     doc.asis(f'<td>{row.item_type} <span class="extra">({ITEM_TYPES[row.item_type]})</span>')
-    line('td', row.pdgid if row.pdgid else '')
-    line('td', row.mcid if row.mcid else '')
+    line('td', maybe(row.pdgid))
+    line('td', maybe(row.mcid))
+    line('td', maybe(row.charge))
+    line('td', maybe(row.quantum_i))
+    line('td', maybe(row.quantum_g))
+    line('td', maybe(row.quantum_j))
+    line('td', maybe(row.quantum_p))
+    line('td', maybe(row.quantum_c))
 
     query = select(pdgitem_map_table, pdgitem_table) \
         .join(pdgitem_table,
@@ -238,6 +247,12 @@ def dump_group(api, conn, pdgids):
                 line('th', 'Item type')
                 line('th', 'PDGID')
                 line('th', 'MCID')
+                line('th', 'Q')
+                line('th', 'I')
+                line('th', 'G')
+                line('th', 'J')
+                line('th', 'P')
+                line('th', 'C')
                 line('th', 'Targets')
         with tag('tbody'):
             for row in item_data:

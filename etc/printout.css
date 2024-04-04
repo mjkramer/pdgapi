@@ -32,6 +32,7 @@ html {
 
 table {
     /* margin-left: -2em; */
+    border-collapse: collapse;
 }
 
 th, td {
@@ -52,4 +53,19 @@ th {
 
 tbody {
     font-weight: bold;
+}
+
+tbody tr td {
+    padding-bottom: 0.25em;
+    padding-top: 0.25em;
+    margin: 0;
+}
+
+tbody tr:nth-child(even) {
+    background-color: #dddddd;
+}
+
+tbody tr:nth-child(even) td {
+    background-color: #dddddd;
+    border-color: #dddddd;
 }
