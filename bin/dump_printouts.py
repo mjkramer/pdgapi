@@ -34,6 +34,15 @@ def item2items(api, conn, item):
         yield from item2items(api, conn, row.pdgitem_id)
 
 
+def item2targets(api, conn, item):
+    "Returns a generator of PDGITEMs that refer to the provided one"
+    pdgitem_map_table = api.db.tables['pdgitem_map']
+
+    query = select(pdgitem_map_table).where(pdgitem_map_table.c.pdgitem_id == item)
+    for row in conn.execute(query).fetchall():
+        yield row.target_id
+        yield from item2targets(api, conn, row.target_id)
+
 def pdgid2items(api, conn, pdgid):
     "Returns the set of all PDGITEMs that refer to the provided PDGID"
     pdgparticle_table = api.db.tables['pdgparticle']
@@ -116,7 +125,8 @@ def get_item_data(api, conn, items):
               pdgitem_table.c.id == pdgparticle_table.c.pdgitem_id,
               isouter=True) \
         .where(pdgitem_table.c.id.in_(list(items))) \
-        .order_by(pdgitem_table.c.id)
+        .order_by(pdgparticle_table.c.pdgid) # XXX
+        # .order_by(pdgitem_table.c.id)
     return conn.execute(query).fetchall()
 
 
@@ -243,6 +253,13 @@ def describe_pdgids(api, conn, pdgids):
 
 def dump_group(api, conn, pdgids):
     item_data = item_data_for_group(api, conn, pdgids)
+    # print(item_data)
+    generic_items = [r for r in item_data if r.item_type in 'G']
+    generic_items += [r for r in item_data if r.item_type in 'B']
+    generic_items += [r for r in item_data if r.item_type in 'C']
+    alias_items = [r for r in item_data if r.item_type in 'AWS']
+    specific_items = [r for r in item_data if r.item_type == 'P']
+    other_items = [r for r in item_data if r.item_type in 'LT']
 
     # html = ''
 
@@ -252,6 +269,8 @@ def dump_group(api, conn, pdgids):
     #             html += dump_item(api, conn, row)
 
     doc, tag, text, line = Doc().ttl()
+
+    dumped = set()
 
     with tag('table'):
         with tag('thead'):
@@ -268,9 +287,41 @@ def dump_group(api, conn, pdgids):
                 line('th', 'C')
                 line('th', 'Mapped targets')
         with tag('tbody'):
-            for row in item_data:
+            for row in generic_items:
                 with tag('tr'):
                     dump_item(api, conn, doc, row)
+                    dumped.add(row.pdgitem_name)
+                # NB: PDGITEM.PDGITEM_ID is row[0] (if we do .pdgitem_id we get the possibly NULL joined value from pdgparticle)
+                # print('<-', row[0], row.pdgitem_name)
+                for target in item2targets(api, conn, row[0]):
+                    # print(target)
+                    try:
+                        t = next(r for r in item_data if r[0] == target)
+                    except StopIteration:
+                        print(f"Can't find target {target} from {row[0]}")
+                        continue
+                    # print('->', t)
+                    if t.pdgitem_name not in dumped:
+                        with tag('tr'):
+                            dump_item(api, conn, doc, t)
+                        dumped.add(t.pdgitem_name)
+            for row in alias_items:
+                with tag('tr'):
+                    dump_item(api, conn, doc, row)
+                    dumped.add(row.pdgitem_name)
+                for target in item2targets(api, conn, row[0]):
+                    t = next(r for r in item_data if r[0] == target)
+                    if t.pdgitem_name not in dumped:
+                        with tag('tr'):
+                            dump_item(api, conn, doc, t)
+                        dumped.add(t.pdgitem_name)
+            for row in specific_items + other_items:
+                if row.pdgitem_name not in dumped:
+                    with tag('tr'):
+                        dump_item(api, conn, doc, row)
+
+            # with tag('tr'):
+            #     dump_item(api, conn, doc, row)
 
     # for row in item_data:
     #     dump_item(api, conn, doc, row)
