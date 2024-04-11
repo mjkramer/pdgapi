@@ -298,8 +298,10 @@ def dump_group(api, conn, pdgids):
                     try:
                         t = next(r for r in item_data if r[0] == target)
                     except StopIteration:
-                        print(f"Can't find target {target} from {row[0]}")
-                        continue
+                        # WHY IS THIS HAPPENING?!??!!
+                        print(f"Need to look up {target} from {row[0]}")
+                        # continue
+                        t = get_item_data(api, conn, [target])[0]
                     # print('->', t)
                     if t.pdgitem_name not in dumped:
                         with tag('tr'):
