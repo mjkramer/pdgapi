@@ -173,6 +173,15 @@ def dump_item_old(api, conn, doc, row):
 
     # return yattag.indent(doc.getvalue()) + '\n'
 
+def item_type2klass(item_type):
+    if item_type == 'P':
+        return 'specific-type'
+    if item_type in 'AWS':
+        return 'alias-type'
+    if item_type in 'BCG':
+        return 'generic-type'
+    return 'other-type'
+
 
 def dump_item(api, conn, doc, row):
     pdgitem_table = api.db.tables['pdgitem']
@@ -201,8 +210,12 @@ def dump_item(api, conn, doc, row):
         .where(pdgitem_map_table.c.pdgitem_id == row.id)
     targets = conn.execute(query).fetchall()
     if targets:
-        klass = 'suspect' if row.item_type == 'P' else ''
-        line('td', ', '.join(t.pdgitem_name for t in targets), klass=klass)
+        # klass = 'suspect' if row.item_type == 'P' else ''
+        with tag('td'):
+            lines = [f'<span class={item_type2klass(t.item_type)}>{t.pdgitem_name}</span>'
+                     for t in targets]
+            doc.asis('<br>'.join(lines))
+        # line('td', '\n'.join(t.pdgitem_name for t in targets), klass=klass)
     else:
         line('td', '')
 
@@ -253,7 +266,7 @@ def dump_group(api, conn, pdgids):
                 line('th', 'J')
                 line('th', 'P')
                 line('th', 'C')
-                line('th', 'Targets')
+                line('th', 'Mapped targets')
         with tag('tbody'):
             for row in item_data:
                 with tag('tr'):
@@ -289,6 +302,7 @@ def dump_page(api, conn, category, pdgids):
             # descrip = describe_pdgids(api, conn, pdgids)
             # line('div', f'Names for {descrip}', klass='title')
             line('div', category, klass='title')
+            doc.asis('<div class="legend">Mapping legend: &nbsp;<b><span class="specific-type">Specific,</span>&nbsp; <span class="alias-type">alias,</span>&nbsp; <span class="generic-type">generic,</span>&nbsp; <span class="other-type">other</span></div>')
             doc.asis(dump_group(api, conn, pdgids))
 
     return yattag.indent(doc.getvalue()) + '\n'
@@ -307,6 +321,7 @@ def _pdgid2category(api, conn):
         else:
             result[row.pdgid] = category
     return result
+
 
 
 def pdgid2category(api, conn, pdgid):

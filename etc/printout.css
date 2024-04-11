@@ -45,11 +45,12 @@ th {
 }
 
 thead {
-    font-weight: normal;
+    font-weight: bold;
+    border-bottom: 0.1em solid black;
 }
 
 th {
-    font-weight: normal;
+    font-weight: bold;
 }
 
 tbody {
@@ -69,4 +70,24 @@ tbody tr:nth-child(even) {
 tbody tr:nth-child(even) td {
     background-color: #dddddd;
     border-color: #dddddd;
+}
+
+.specific-type {
+}
+
+.alias-type {
+    color: blue;
+}
+
+.generic-type {
+    color: red;
+}
+
+.other-type {
+    color: green;
+}
+
+.legend {
+    margin-bottom: 1.5em;
+    white-space: pre;
 }
