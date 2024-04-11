@@ -190,7 +190,7 @@ def dump_item(api, conn, doc, row):
     _, tag, text, line = doc.ttl()
 
     def maybe(v):
-        return v if v else ''
+        return v if (v is not None) else ''
 
     line('td', row.name)
     #line('td', row.item_type)
