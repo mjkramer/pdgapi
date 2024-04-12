@@ -25,6 +25,12 @@ ITEM_TYPES = {
 }
 
 
+def get_sort(api, conn, pdgid):
+    pdgid_table = api.db.tables['pdgid']
+    query = select(pdgid_table.c.sort).where(pdgid_table.c.pdgid == pdgid)
+    return conn.execute(query).scalar()
+
+
 def get_charge_for_sorting(api, conn, item):
     pdgparticle_table = api.db.tables['pdgparticle']
     pdgitem_map_table = api.db.tables['pdgitem_map']
@@ -43,6 +49,26 @@ def get_charge_for_sorting(api, conn, item):
         return -10
     # assert len(rows) == 1
     return get_charge_for_sorting(api, conn, rows[0].target_id)
+
+
+def get_sort_for_sorting(api, conn, item):
+    pdgparticle_table = api.db.tables['pdgparticle']
+    pdgitem_map_table = api.db.tables['pdgitem_map']
+    pdgitem_table = api.db.tables['pdgitem']
+    query = select(pdgparticle_table).where(pdgparticle_table.c.pdgitem_id == item)
+    rows = conn.execute(query).fetchall()
+    assert len(rows) in [0, 1]
+    if rows:
+        return get_sort(api, conn, rows[0].pdgid)
+    query = select(pdgitem_map_table).where(pdgitem_map_table.c.pdgitem_id == item)
+    rows = conn.execute(query).fetchall()
+    if len(rows) == 0:
+        query = select(pdgitem_table).where(pdgitem_table.c.id == item)
+        row = conn.execute(query).fetchone()
+        print(f'Warning: Could not resolve sort of {item} {row.name}')
+        return 9999999999
+    # assert len(rows) == 1
+    return get_sort_for_sorting(api, conn, rows[0].target_id)
 
 
 def item2items(api, conn, item):
@@ -279,6 +305,8 @@ def describe_pdgids(api, conn, pdgids):
 def dump_group(api, conn, pdgids):
     item_data = item_data_for_group(api, conn, pdgids)
     # print(item_data)
+    item_data.sort(key=lambda r: get_sort_for_sorting(api, conn, r[0]))
+
     generic_items = [r for r in item_data if r.item_type in 'G']
     generic_items += [r for r in item_data if r.item_type in 'B']
     generic_items += [r for r in item_data if r.item_type in 'C']
@@ -427,7 +455,7 @@ def dump_all(api, conn):
     os.mkdir('printouts')
 
     for category, group in metagroups.items():
-        group = sorted(group)
+        # group.sort(key=lambda pdgid: get_sort(api, conn, pdgid))
         name = category.replace(' ', '_').replace('/', '_').replace("'", '_prime')
         html = dump_page(api, conn, category, group)
         open(f'printouts/{name}.html', 'w').write(html)
