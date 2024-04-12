@@ -36,7 +36,7 @@ def item2items(api, conn, item):
 
 
 def item2targets(api, conn, item):
-    "Returns a generator of PDGITEMs that refer to the provided one"
+    "Returns a generator of PDGITEMs that the provided one refers to"
     pdgitem_map_table = api.db.tables['pdgitem_map']
 
     query = select(pdgitem_map_table).where(pdgitem_map_table.c.pdgitem_id == item)
@@ -58,6 +58,9 @@ def pdgid2items(api, conn, pdgid):
 
         for item in item2items(api, conn, row.pdgitem_id):
             items.add(item)
+
+            for tgt in item2targets(api, conn, item):
+                items.add(tgt)
 
     return items
 
