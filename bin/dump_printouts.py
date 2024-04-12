@@ -348,7 +348,8 @@ def dump_page(api, conn, category, pdgids):
             with tag('style'):
                 css_path = os.path.dirname(__file__) + '/../etc/printout.css'
                 text('\n' + open(css_path).read())
-            line('title', ', '.join(pdgids))
+            # line('title', ', '.join(pdgids))
+            line('title', category)
             # with tag('script', src='https://polyfill.io/v3/polyfill.min.js?features=es6'):
             #     pass
             # with tag('script', 'async', id='MathJax-script',
