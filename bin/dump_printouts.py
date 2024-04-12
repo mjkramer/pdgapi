@@ -20,6 +20,7 @@ ITEM_TYPES = {
     'C': 'both charges, conjugate',
     'G': 'generic',
     'L': 'list',
+    'I': 'inclusive',
     'T': 'text'
 }
 
@@ -259,7 +260,7 @@ def dump_group(api, conn, pdgids):
     generic_items += [r for r in item_data if r.item_type in 'C']
     alias_items = [r for r in item_data if r.item_type in 'AWS']
     specific_items = [r for r in item_data if r.item_type == 'P']
-    other_items = [r for r in item_data if r.item_type in 'LT']
+    other_items = [r for r in item_data if r.item_type in 'LIT']
 
     # html = ''
 
@@ -420,8 +421,9 @@ def member(name: str, multiplet_name: str):
         name = name[:p] + name[name.find(')')+1:]
     suffixes = ['', '0', 'bar', 'bar0', '0bar', '-', '+', 'bar-', 'bar+']
     # suffixes = ['']
-    return any(name.startswith(multiplet_name + suffix)
-               for suffix in suffixes)
+    # return any(name.startswith(multiplet_name + suffix)
+    #            for suffix in suffixes)
+    return name.startswith(multiplet_name)
 
 def is_unflavored_meson(name):
     if (name.find('_c') != -1) or (name.find('_b') != -1):
@@ -440,6 +442,9 @@ def is_rho(name):
 
 def is_omega(name):
     return is_unflavored_meson(name) and member(name, 'omega')
+
+def is_phi(name):
+    return is_unflavored_meson(name) and member(name, 'phi')
 
 def is_a(name):
     return is_unflavored_meson(name) and member(name, 'a_')
@@ -512,6 +517,8 @@ def get_category(name):
         return 'Rho mesons'
     if is_omega(name):
         return 'Omega mesons'
+    if is_phi(name):
+        return 'Phi mesons'
     if is_a(name):
         return 'a mesons'
     if is_b(name):
@@ -545,14 +552,25 @@ def get_category(name):
     if is_sigma_baryon(name):
         return 'Sigma baryons'
     if is_tetra_penta(name):
-        return 'Tetraquarks and pentaquarks'
+        if EDITION == '2023':
+            return 'Pentaquarks'
+        else:
+            return 'Pentaquarks and tetraquarks'
     if is_unclassified(name):
-        return 'Unclassified states'
+        return 'Other mesons'
     return 'Error'
+
+
+def get_edition(api, conn):
+    pdginfo = api.db.tables['pdginfo']
+    q = select(pdginfo.c.value).where(pdginfo.c.name == "edition")
+    return conn.execute(q).fetchone()[0]
 
 
 if __name__ == '__main__':
     import pdg
     api = pdg.connect()
     conn = api.engine.connect()
+    global EDITION
+    EDITION = get_edition(api, conn)
     dump_all(api, conn)
