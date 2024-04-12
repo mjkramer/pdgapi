@@ -25,6 +25,26 @@ ITEM_TYPES = {
 }
 
 
+def get_charge_for_sorting(api, conn, item):
+    pdgparticle_table = api.db.tables['pdgparticle']
+    pdgitem_map_table = api.db.tables['pdgitem_map']
+    pdgitem_table = api.db.tables['pdgitem']
+    query = select(pdgparticle_table).where(pdgparticle_table.c.pdgitem_id == item)
+    rows = conn.execute(query).fetchall()
+    assert len(rows) in [0, 1]
+    if rows:
+        return rows[0].charge
+    query = select(pdgitem_map_table).where(pdgitem_map_table.c.pdgitem_id == item)
+    rows = conn.execute(query).fetchall()
+    if len(rows) != 1:
+        query = select(pdgitem_table).where(pdgitem_table.c.id == item)
+        row = conn.execute(query).fetchone()
+        print(f'Warning: Could not resolve charge of {item} {row.name}')
+        return -10
+    # assert len(rows) == 1
+    return get_charge_for_sorting(api, conn, rows[0].target_id)
+
+
 def item2items(api, conn, item):
     "Returns a generator of PDGITEMs that refer to the provided one"
     pdgitem_map_table = api.db.tables['pdgitem_map']
@@ -223,6 +243,7 @@ def dump_item(api, conn, doc, row):
                 pdgitem_map_table.c.target_id == pdgitem_table.c.id) \
         .where(pdgitem_map_table.c.pdgitem_id == row.id)
     targets = conn.execute(query).fetchall()
+    targets.sort(key=lambda t: get_charge_for_sorting(api, conn, t.target_id), reverse=True)
     if targets:
         # klass = 'suspect' if row.item_type == 'P' else ''
         with tag('td'):
@@ -297,7 +318,9 @@ def dump_group(api, conn, pdgids):
                     dumped.add(row.pdgitem_name)
                 # NB: PDGITEM.PDGITEM_ID is row[0] (if we do .pdgitem_id we get the possibly NULL joined value from pdgparticle)
                 # print('<-', row[0], row.pdgitem_name)
-                for target in item2targets(api, conn, row[0]):
+                targets = list(item2targets(api, conn, row[0]))
+                targets.sort(key=lambda t: get_charge_for_sorting(api, conn, t), reverse=True)
+                for target in targets:
                     # print(target)
                     try:
                         t = next(r for r in item_data if r[0] == target)
@@ -315,7 +338,9 @@ def dump_group(api, conn, pdgids):
                 with tag('tr'):
                     dump_item(api, conn, doc, row)
                     dumped.add(row.pdgitem_name)
-                for target in item2targets(api, conn, row[0]):
+                targets = list(item2targets(api, conn, row[0]))
+                # targets.sort(key=lambda t: get_charge_for_sorting(api, conn, t), reverse=True)
+                for target in targets:
                     t = next(r for r in item_data if r[0] == target)
                     if t.pdgitem_name not in dumped:
                         with tag('tr'):
