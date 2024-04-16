@@ -9,7 +9,7 @@ from typing import Iterable
 from sqlalchemy import Row, select, distinct
 
 import yattag
-from yattag import Doc, SimpleDoc
+from yattag import Doc
 
 import pdg
 
@@ -86,7 +86,7 @@ def maybe(v):
     return v if (v is not None) else ''
 
 
-def render_item(row: Row) -> SimpleDoc:
+def render_item(row: Row) -> str:
     doc, tag, text, line = Doc().ttl()
 
     line('td', row.name)
@@ -118,7 +118,7 @@ def render_item(row: Row) -> SimpleDoc:
             with tag('span', klass=item_type2klass(t.item_type)):
                 text(t.pdgitem_name)
 
-    return doc
+    return doc.getvalue()
 
 
 @dataclass
@@ -183,7 +183,7 @@ class ItemGroup:
 
         self.item_data = aliases + generics + others + specifics
 
-    def render(self) -> SimpleDoc:
+    def render(self) -> str:
         doc = Doc()
         rendered = set()
 
@@ -191,11 +191,53 @@ class ItemGroup:
             # .pdgitem_id could(?) refer to PDGPARTICLE.pdgitem_id which might
             # be null since isouter=True. So use [0] i.e. PDGITEM.id.
             item = row[0]
+
             if item in rendered:
                 continue
             rendered.add(item)
 
-            item_doc = render_item(row)
-            doc.asis(item_doc.getvalue()) # XXX
+            doc.asis(render_item(row))
 
-        return doc
+        return doc.getvalue()
+
+
+def render_page(category: str, groups: list[ItemGroup]) -> str:
+    doc, tag, text, line = Doc().ttl()
+    stag = doc.stag
+
+    doc.asis('<!DOCTYPE html>')
+
+    with tag('html'):
+        with tag('head'):
+            stag('meta', charset='UTF-8')
+            with tag('style'):
+                css_path = os.path.dirname(__file__) + '/../etc/printout.css'
+                text('\n' + open(css_path).read())
+            line('title', category)
+
+        with tag('body'):
+            line('div', category, klass='title')
+            with tag('div', klass='legend'):
+                text('Mapping legend:')
+                line('span', 'Specific, ', klass='legend-label specific-type')
+                line('span', 'alias, ', klass='legend-label alias-type')
+                line('span', 'generic, ', klass='legend-label generic-type')
+                line('span', 'other', klass='legend-label other-type')
+            for g in groups:
+                doc.asis(g.render())
+
+    return doc.getvalue()
+
+
+def main():
+    os.mkdir('printouts')
+
+    for category, groups in ItemGroup.all_categorized().items():
+        raw_html = render_page(category, groups)
+        html = yattag.indent(raw_html) + '\n'
+        name = category.replace(' ', '_').replace('/', '_').replace("'", '_prime')
+        open(f'printouts/{name}.html', 'w').write(html)
+
+
+if __name__ == '__main__':
+    main()
