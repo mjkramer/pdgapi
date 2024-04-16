@@ -91,3 +91,9 @@ tbody tr:nth-child(even) td {
     margin-bottom: 1.5em;
     white-space: pre;
 }
+
+.legend-label {
+    font-weight: bold;
+    padding-left: 1em;
+    padding-right: 1em;
+}

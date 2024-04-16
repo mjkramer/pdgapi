@@ -111,7 +111,7 @@ def render_item(row: Row) -> str:
     with tag('td'):
         text(row.item_type)
         with tag('span', klass='extra'):
-            text(ITEM_TYPES[row.item_type])
+            text(f' ({ITEM_TYPES[row.item_type]})')
 
     line('td', maybe(row.pdgid))
     line('td', maybe(row.mcid))
@@ -122,10 +122,14 @@ def render_item(row: Row) -> str:
     line('td', maybe(row.quantum_p))
     line('td', maybe(row.quantum_c))
 
-    q = select(PDGITEM_MAP, PDGITEM) \
+    q = select(PDGITEM_MAP, PDGITEM, PDGPARTICLE) \
         .join(PDGITEM,
               PDGITEM_MAP.c.target_id == PDGITEM.c.id) \
-        .where(PDGITEM_MAP.c.pdgitem_id == row.id)
+        .join(PDGPARTICLE,
+              PDGITEM_MAP.c.target_id == PDGPARTICLE.c.pdgitem_id,
+              isouter=True) \
+        .where(PDGITEM_MAP.c.pdgitem_id == row.id) \
+        .order_by(PDGPARTICLE.c.charge.desc())
     targets = execute(q).fetchall()
 
     with tag('td'):
@@ -198,9 +202,10 @@ class ItemGroup:
             d[category].sort(key=lambda g: g.sort_order)
         return d
 
-
     def arrange(self):
-        self.item_data.sort(key=lambda row: row.charge, reverse=True)
+        def charge_or_default(row):
+            return row.charge if (row.charge is not None) else -1000
+        self.item_data.sort(key=charge_or_default, reverse=True)
 
         def items_typed(types: list[str]):
             return [it for it in self.item_data if it.item_type in types]
@@ -213,6 +218,8 @@ class ItemGroup:
         self.item_data = aliases + generics + others + specifics
 
     def render(self) -> str:
+        self.arrange()
+
         doc = Doc()
         rendered = set()
 
@@ -225,7 +232,8 @@ class ItemGroup:
                 continue
             rendered.add(item)
 
-            doc.asis(render_item(row))
+            with doc.tag('tr'):
+                doc.asis(render_item(row))
 
         return doc.getvalue()
 
@@ -252,8 +260,23 @@ def render_page(category: str, groups: list[ItemGroup]) -> str:
                 line('span', 'alias, ', klass='legend-label alias-type')
                 line('span', 'generic, ', klass='legend-label generic-type')
                 line('span', 'other', klass='legend-label other-type')
-            for g in groups:
-                doc.asis(g.render())
+            with tag('table'):
+                with tag('thead'):
+                    with tag('tr'):
+                        line('th', 'Name')
+                        line('th', 'Item type')
+                        line('th', 'PDGID')
+                        line('th', 'MCID')
+                        line('th', 'Q')
+                        line('th', 'I')
+                        line('th', 'G')
+                        line('th', 'J')
+                        line('th', 'P')
+                        line('th', 'C')
+                        line('th', 'Mapped targets')
+                    with tag('tbody'):
+                        for g in groups:
+                            doc.asis(g.render())
 
     return doc.getvalue()
 
