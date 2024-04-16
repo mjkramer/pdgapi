@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
 from collections import Counter, defaultdict
-from dataclasses import dataclass
-from functools import lru_cache
 import os
 from typing import Iterable
 
-from sqlalchemy import Row, select, distinct
+from sqlalchemy import Row, select
 
 import yattag
 from yattag import Doc
@@ -48,17 +46,27 @@ def pdgid2sort(pdgid: str) -> int:
     return execute(q).scalar()  # type: ignore
 
 
-def item2pdgids(item: int) -> set[str]:
-    def inner(item: int):
-        q = select(PDGPARTICLE).where(PDGPARTICLE.c.pdgitem_id == item)
-        rows = execute(q).fetchall()
-        assert len(rows) <= 1
-        if len(rows) == 1:
-            yield rows[0].pdgid
-        q = select(PDGITEM_MAP).where(PDGITEM_MAP.c.pdgitem_id == item)
-        for row in execute(q).fetchall():
-            yield from inner(row.target_id)
-    return set(inner(item))
+def item2pdgids_down(item: int, exclude = []):
+    q = select(PDGPARTICLE).where(PDGPARTICLE.c.pdgitem_id == item)
+    rows = execute(q).fetchall()
+    assert len(rows) <= 1
+    if len(rows) == 1:
+        yield rows[0].pdgid
+    q = select(PDGITEM_MAP).where(PDGITEM_MAP.c.pdgitem_id == item)
+    for row in execute(q).fetchall():
+        if row.target_id not in exclude:
+            yield from item2pdgids_down(row.target_id)
+
+
+def item2pdgids_up(item: int):
+    q_up = select(PDGITEM_MAP).where(PDGITEM_MAP.c.target_id == item)
+    rows_up = execute(q_up).fetchall()
+    for row_up in rows_up:
+        yield from item2pdgids_down(row_up.pdgitem_id, exclude=[item])
+
+def item2pdgids(item: int):
+    return set(item2pdgids_down(item)) | set(item2pdgids_up(item))
+
 
 
 def item_type2klass(item_type):
@@ -121,10 +129,10 @@ def render_item(row: Row) -> str:
     return doc.getvalue()
 
 
-@dataclass
 class ItemGroup:
-    pdgids: set[str] = set()
-    item_data: list[Row] = []
+    def __init__(self):
+        self.pdgids: set[str] = set()
+        self.item_data: list[Row] = []
 
     def has_any(self, pdgids: Iterable[str]) -> bool:
         return any(pdgid in self.pdgids for pdgid in pdgids)
@@ -136,7 +144,11 @@ class ItemGroup:
 
     @property
     def sort_order(self) -> int:
-        return min(pdgid2sort(pdgid) for pdgid in self.pdgids)
+        try:
+            return min(pdgid2sort(pdgid) for pdgid in self.pdgids)
+        except:
+            print("wTf", self.item_data)
+            return -1000
 
     def update_pdgids(self, pdgids: Iterable[str]):
         for pdgid in pdgids:
