@@ -210,8 +210,10 @@ class ItemGroup:
         def items_typed(types: list[str]):
             return [it for it in self.item_data if it.item_type in types]
 
-        aliases = items_typed(['A', 'W', 'S'])
-        generics = items_typed(['G', 'B', 'C'])
+        # aliases = items_typed(['A', 'W', 'S'])
+        aliases = items_typed(['A']) + items_typed(['W']) + items_typed(['S'])
+        # generics = items_typed(['G', 'B', 'C'])
+        generics = items_typed(['G']) + items_typed(['B']) + items_typed(['C'])
         others = items_typed(['L', 'I', 'T'])
         specifics = items_typed(['P'])
 
