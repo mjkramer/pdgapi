@@ -27,6 +27,14 @@ ITEM_TYPES = {
     'T': 'text'
 }
 
+# HACK
+PDGID_DICT = {
+    'X(3915)': 'M159',
+    'D_sJ^*(2860)': 'M196',     # QUESTIONABLE... M226?
+    'R_c 0(4240)': 'M216',
+    'X(4240)+-': 'M216',
+}
+
 API = pdg.connect()
 CONN = API.engine.connect()
 execute = CONN.execute
@@ -46,7 +54,7 @@ def pdgid2sort(pdgid: str) -> int:
     return execute(q).scalar()  # type: ignore
 
 
-def item2pdgids_down(item: int, exclude = []):
+def item2pdgids_down(item: int, exclude = []) -> Iterable[str]:
     q = select(PDGPARTICLE).where(PDGPARTICLE.c.pdgitem_id == item)
     rows = execute(q).fetchall()
     assert len(rows) <= 1
@@ -58,15 +66,16 @@ def item2pdgids_down(item: int, exclude = []):
             yield from item2pdgids_down(row.target_id)
 
 
-def item2pdgids_up(item: int):
-    q_up = select(PDGITEM_MAP).where(PDGITEM_MAP.c.target_id == item)
-    rows_up = execute(q_up).fetchall()
-    for row_up in rows_up:
-        yield from item2pdgids_down(row_up.pdgitem_id, exclude=[item])
+def item2pdgids_up(item: int) -> Iterable[str]:
+    q = select(PDGITEM_MAP).where(PDGITEM_MAP.c.target_id == item)
+    rows = execute(q).fetchall()
+    for row in rows:
+        yield from item2pdgids_down(row.pdgitem_id, exclude=[item])
+        yield from item2pdgids_up(row.pdgitem_id)
+
 
 def item2pdgids(item: int):
     return set(item2pdgids_down(item)) | set(item2pdgids_up(item))
-
 
 
 def item_type2klass(item_type):
@@ -147,7 +156,7 @@ class ItemGroup:
         try:
             return min(pdgid2sort(pdgid) for pdgid in self.pdgids)
         except:
-            print("wTf", self.item_data)
+            print(f'Cannot determine PDGIDs:\n{self.item_data}\n')
             return -1000
 
     def update_pdgids(self, pdgids: Iterable[str]):
@@ -163,6 +172,14 @@ class ItemGroup:
         q = select(PDGITEM).where(PDGITEM.c.item_type.not_in(['L', 'I', 'T']))
         for row in execute(q).fetchall():
             pdgids = item2pdgids(row.id)
+            if not pdgids:
+                print(f'LOOKING UP {row.name}... ', end='')
+                try:
+                    pdgids = {PDGID_DICT[row.name]}
+                    print('found')
+                except:
+                    print('skipping')
+                    continue
             try:
                 g = next(g for g in groups if g.has_any(pdgids))
             except StopIteration:
