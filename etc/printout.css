@@ -37,7 +37,7 @@ table {
 
 th, td {
     padding-right: 2em;
-    white-space: pre;
+    /* white-space: pre; */
 }
 
 th {

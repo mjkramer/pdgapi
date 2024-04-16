@@ -135,7 +135,7 @@ def render_item(row: Row) -> str:
     with tag('td'):
         for i, t in enumerate(targets):
             if i != 0:
-                tag('br')
+                doc.stag('br')
             with tag('span', klass=item_type2klass(t.item_type)):
                 text(t.pdgitem_name)
 
