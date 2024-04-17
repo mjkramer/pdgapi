@@ -310,6 +310,7 @@ def dump_group(api, conn, pdgids):
     generic_items = [r for r in item_data if r.item_type in 'G']
     generic_items += [r for r in item_data if r.item_type in 'B']
     generic_items += [r for r in item_data if r.item_type in 'C']
+    # generic_items = [r for r in item_data if r.item_type in 'GBC']
     alias_items = [r for r in item_data if r.item_type in 'AWS']
     specific_items = [r for r in item_data if r.item_type == 'P']
     other_items = [r for r in item_data if r.item_type in 'LIT']

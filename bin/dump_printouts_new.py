@@ -27,12 +27,13 @@ ITEM_TYPES = {
     'T': 'text'
 }
 
-# HACK
+# HACK; not needed as long as every (non-text) Item can be associated to a
+# Particle(s)
 PDGID_DICT = {
-    'X(3915)': 'M159',
-    'D_sJ^*(2860)': 'M196',     # QUESTIONABLE... M226?
-    'R_c 0(4240)': 'M216',
-    'X(4240)+-': 'M216',
+    # 'X(3915)': 'M159',
+    # 'D_sJ^*(2860)': 'M196',     # QUESTIONABLE... M226?
+    # 'R_c 0(4240)': 'M216',
+    # 'X(4240)+-': 'M216',
 }
 
 API = pdg.connect()
@@ -66,6 +67,8 @@ def item2pdgids_down(item: int, exclude = []) -> Iterable[str]:
             yield from item2pdgids_down(row.target_id)
 
 
+# Not needed as long as every generic/alias item can be used to reach a particle
+# by following its target(s)
 def item2pdgids_up(item: int) -> Iterable[str]:
     q = select(PDGITEM_MAP).where(PDGITEM_MAP.c.target_id == item)
     rows = execute(q).fetchall()
@@ -75,7 +78,8 @@ def item2pdgids_up(item: int) -> Iterable[str]:
 
 
 def item2pdgids(item: int):
-    return set(item2pdgids_down(item)) | set(item2pdgids_up(item))
+    # return set(item2pdgids_down(item)) | set(item2pdgids_up(item))
+    return set(item2pdgids_down(item))
 
 
 def item_type2klass(item_type):
@@ -108,7 +112,7 @@ def render_item(row: Row) -> str:
 
     line('td', row.name)
     #line('td', row.item_type)
-    with tag('td'):
+    with tag('td', klass=item_type2klass(row.item_type)):
         text(row.item_type)
         with tag('span', klass='extra'):
             text(f' ({ITEM_TYPES[row.item_type]})')
@@ -257,8 +261,8 @@ def render_page(category: str, groups: list[ItemGroup]) -> str:
         with tag('body'):
             line('div', category, klass='title')
             with tag('div', klass='legend'):
-                text('Mapping legend:')
-                line('span', 'Specific, ', klass='legend-label specific-type')
+                text('Item type colors:')
+                line('span', 'Specific, ', klass='first-legend-label specific-type')
                 line('span', 'alias, ', klass='legend-label alias-type')
                 line('span', 'generic, ', klass='legend-label generic-type')
                 line('span', 'other', klass='legend-label other-type')
