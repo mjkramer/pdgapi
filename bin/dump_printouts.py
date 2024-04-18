@@ -289,7 +289,7 @@ def render_page(category: str, groups: list[ItemGroup]) -> str:
     return doc.getvalue()
 
 def is_gauge_or_higgs(name):
-    return name in ['gamma', 'g', 'graviton', 'W+', 'W-', 'Z0', 'H0', 'H']
+    return name in ['gamma', 'g', 'graviton', 'W+', 'W-', 'Z0', 'Z', 'H0', 'H']
 
 def is_lepton(name):
     return name in ['e-', 'e+', 'mu-', 'mu+', 'tau-', 'tau+']
