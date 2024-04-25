@@ -108,6 +108,32 @@ def maybe(v):
     return v if (v is not None) else ''
 
 
+def fmt_charge(q: float):
+    q3 = 3*q
+    assert abs(round(q3) - q3) < 0.0000001
+    if round(q3) % 3 == 0:
+        return f'{int(q)}'
+    else:
+        return f'{round(q3)}/3'
+
+
+def test_fmt_charge():
+    expectations = {
+        0.0: '0',
+        -1.0: '-1',
+        -2.0: '-2',
+        1.0: '1',
+        2.0: '2',
+        1/3: '1/3',
+        -2/3: '-2/3',
+        5/3: '5/3'
+    }
+
+    for v in expectations:
+        print(v, fmt_charge(v))
+        assert fmt_charge(v) == expectations[v]
+
+
 def render_item(row: Row) -> str:
     doc, tag, text, line = Doc().ttl()
 
@@ -120,7 +146,7 @@ def render_item(row: Row) -> str:
 
     line('td', maybe(row.pdgid))
     line('td', maybe(row.mcid))
-    line('td', maybe(row.charge))
+    line('td', fmt_charge(row.charge) if row.charge is not None else '')
     line('td', maybe(row.quantum_i))
     line('td', maybe(row.quantum_g))
     line('td', maybe(row.quantum_j))
