@@ -5,6 +5,8 @@ from __future__ import print_function
 
 import unittest
 
+from sqlalchemy import select, distinct
+
 import pdg
 from pdg.decay import PdgBranchingFraction, PdgDecayProduct
 from pdg.errors import PdgAmbiguousValueError, PdgNoDataError
@@ -281,3 +283,12 @@ class TestData(unittest.TestCase):
         self.assertIsInstance(gamma, PdgParticle)
         self.assertEqual(gamma.pdgid, 'S000/2023')
 
+    def test_masses_of_all_mcids(self):
+        pdgparticle_table = self.api.db.tables['pdgparticle']
+        query = select(distinct(pdgparticle_table.c.mcid)) \
+            .where(pdgparticle_table.c.mcid != None)
+        with self.api.engine.connect() as conn:
+            mcids = [row[0] for row in conn.execute(query)]
+        for mcid in mcids:
+            p = self.api.get_particle_by_mcid(mcid)
+            self.assertIsNotNone(p.mass)
